@@ -13,7 +13,7 @@ export default function LoginPage() {
   function iniciarSesion(e: FormEvent) {
     e.preventDefault()
 
-    if (correo === 'admin@admin.com' && password === 'admin') {
+    if (correo === 'admin@proyecto.com' && password === 'admin1986') {
       localStorage.setItem('miniERPAuth', 'true')
       router.push('/dashboard')
     } else {

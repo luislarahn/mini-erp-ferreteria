@@ -314,65 +314,65 @@ export default function PersonalTab() {
   }
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-4">Personal</h2>
+    <div className="text-black">
+      <h2 className="text-2xl font-bold mb-4 text-black">Personal</h2>
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
-        <div className="xl:col-span-2 bg-slate-950 border border-slate-700 rounded-2xl p-6">
-          <h3 className="text-xl font-semibold text-cyan-400 underline mb-6">
+        <div className="xl:col-span-2 bg-gray-50 border border-gray-300 rounded-2xl p-6 shadow-sm">
+          <h3 className="text-xl font-semibold text-gray-800 underline mb-6">
             Nuevo Registro
           </h3>
 
           <div className="space-y-4">
             <div>
-              <label className="block mb-1">DNI Empleado:</label>
+              <label className="block mb-1 text-black">DNI Empleado:</label>
               <input
                 type="text"
                 value={dniEmpleado}
                 onChange={(e) => setDniEmpleado(e.target.value)}
                 placeholder="0000-0000-00000"
-                className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
+                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
               />
             </div>
 
             <div>
-              <label className="block mb-1">Código Empleado:</label>
+              <label className="block mb-1 text-black">Código Empleado:</label>
               <input
                 type="text"
                 value={codigoPreview}
                 readOnly
-                className="w-full rounded-lg bg-slate-700 border border-slate-600 px-3 py-2 text-slate-300"
+                className="w-full rounded-lg bg-gray-100 border border-gray-300 px-3 py-2 text-black"
               />
             </div>
 
             <div>
-              <label className="block mb-1">Nombre Completo:</label>
+              <label className="block mb-1 text-black">Nombre Completo:</label>
               <input
                 type="text"
                 value={nombreCompleto}
                 onChange={(e) => setNombreCompleto(e.target.value)}
                 placeholder="Nombre del empleado"
-                className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
+                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
               />
             </div>
 
             <div>
-              <label className="block mb-1">Fecha de nacimiento:</label>
+              <label className="block mb-1 text-black">Fecha de nacimiento:</label>
               <input
                 type="date"
                 value={fechaNacimiento}
                 onChange={(e) => setFechaNacimiento(e.target.value)}
-                className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
+                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black"
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block mb-1">Género:</label>
+                <label className="block mb-1 text-black">Género:</label>
                 <select
                   value={genero}
                   onChange={(e) => setGenero(e.target.value as 'Hombre' | 'Mujer')}
-                  className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
+                  className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black"
                 >
                   <option value="Hombre">Hombre</option>
                   <option value="Mujer">Mujer</option>
@@ -380,13 +380,13 @@ export default function PersonalTab() {
               </div>
 
               <div>
-                <label className="block mb-1">Estado Civil:</label>
+                <label className="block mb-1 text-black">Estado Civil:</label>
                 <select
                   value={estadoCivil}
                   onChange={(e) =>
                     setEstadoCivil(e.target.value as 'Soltero' | 'Casado' | 'Union libre')
                   }
-                  className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
+                  className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black"
                 >
                   <option value="Soltero">Soltero</option>
                   <option value="Casado">Casado</option>
@@ -396,25 +396,25 @@ export default function PersonalTab() {
             </div>
 
             <div>
-              <label className="block mb-1">Profesión:</label>
+              <label className="block mb-1 text-black">Profesión:</label>
               <input
                 type="text"
                 value={profesion}
                 onChange={(e) => setProfesion(e.target.value)}
                 placeholder="Profesión del empleado"
-                className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
+                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
               />
             </div>
 
             <div>
-              <label className="block mb-1">Puesto:</label>
+              <label className="block mb-1 text-black">Puesto:</label>
               <input
                 type="text"
                 list="lista-puestos"
                 value={puestoInput}
                 onChange={(e) => manejarCambioPuesto(e.target.value)}
                 placeholder="Escriba o seleccione un puesto"
-                className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
+                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
               />
               <datalist id="lista-puestos">
                 {puestos.map((puesto) => (
@@ -423,14 +423,14 @@ export default function PersonalTab() {
               </datalist>
 
               {!puestoExistente && puestoInput.trim() !== '' && (
-                <p className="text-xs text-amber-300 mt-2">
+                <p className="text-xs text-amber-600 mt-2">
                   Ese puesto no existe todavía. Se creará automáticamente al guardar.
                 </p>
               )}
             </div>
 
             <div>
-              <label className="block mb-1">Salario:</label>
+              <label className="block mb-1 text-black">Salario:</label>
               <input
                 type="number"
                 min="0"
@@ -438,28 +438,28 @@ export default function PersonalTab() {
                 value={salario}
                 onChange={(e) => setSalario(e.target.value)}
                 placeholder="Ejemplo: 12000"
-                className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
+                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
               />
             </div>
 
             <div>
-              <label className="block mb-1">Fecha de ingreso:</label>
+              <label className="block mb-1 text-black">Fecha de ingreso:</label>
               <input
                 type="date"
                 value={fechaIngreso}
                 onChange={(e) => setFechaIngreso(e.target.value)}
-                className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
+                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black"
               />
             </div>
 
             <div>
-              <label className="block mb-1">Estado:</label>
+              <label className="block mb-1 text-black">Estado:</label>
               <select
                 value={estadoLaboral}
                 onChange={(e) =>
                   setEstadoLaboral(e.target.value as 'Activo' | 'Despedido' | 'Retirado')
                 }
-                className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
+                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black"
               >
                 <option value="Activo">Activo</option>
                 <option value="Despedido">Despedido</option>
@@ -468,7 +468,7 @@ export default function PersonalTab() {
             </div>
 
             {mensaje && (
-              <div className="rounded-lg border border-slate-600 bg-slate-800 px-4 py-3 text-sm">
+              <div className="rounded-lg border border-gray-300 bg-gray-100 px-4 py-3 text-sm text-black">
                 {mensaje}
               </div>
             )}
@@ -477,7 +477,7 @@ export default function PersonalTab() {
               <button
                 onClick={guardarEmpleado}
                 disabled={guardando}
-                className="w-full px-4 py-3 rounded-lg bg-cyan-600 hover:bg-cyan-500 font-semibold disabled:opacity-50"
+                className="w-full px-4 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold disabled:opacity-50"
               >
                 {guardando ? 'Guardando...' : 'Guardar Empleado'}
               </button>
@@ -485,7 +485,7 @@ export default function PersonalTab() {
               <button
                 onClick={limpiarFormulario}
                 type="button"
-                className="px-4 py-3 rounded-lg bg-slate-700 hover:bg-slate-600 font-semibold"
+                className="px-4 py-3 rounded-lg bg-gray-200 hover:bg-gray-300 text-black font-semibold"
               >
                 Limpiar
               </button>
@@ -493,47 +493,51 @@ export default function PersonalTab() {
           </div>
         </div>
 
-        <div className="xl:col-span-3 bg-slate-950 border border-slate-700 rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="xl:col-span-3 bg-gray-50 border border-gray-300 rounded-2xl p-4 shadow-sm">
+          <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
             <table className="w-full border-collapse">
               <thead>
-                <tr className="bg-slate-800 text-cyan-400">
-                  <th className="p-4 text-left">DNI</th>
-                  <th className="p-4 text-left">Código</th>
-                  <th className="p-4 text-left">Nombre</th>
-                  <th className="p-4 text-left">Puesto</th>
-                  <th className="p-4 text-right">Salario</th>
-                  <th className="p-4 text-center">Ingreso</th>
-                  <th className="p-4 text-center">Estado</th>
+                <tr className="bg-gray-100 text-black">
+                  <th className="p-4 text-left border border-gray-200">DNI</th>
+                  <th className="p-4 text-left border border-gray-200">Código</th>
+                  <th className="p-4 text-left border border-gray-200">Nombre</th>
+                  <th className="p-4 text-left border border-gray-200">Puesto</th>
+                  <th className="p-4 text-right border border-gray-200">Salario</th>
+                  <th className="p-4 text-center border border-gray-200">Ingreso</th>
+                  <th className="p-4 text-center border border-gray-200">Estado</th>
                 </tr>
               </thead>
               <tbody>
                 {cargando ? (
                   <tr>
-                    <td colSpan={7} className="p-6 text-center text-slate-300">
+                    <td colSpan={7} className="p-6 text-center text-gray-600 bg-white">
                       Cargando empleados...
                     </td>
                   </tr>
                 ) : empleados.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-6 text-center text-slate-300">
+                    <td colSpan={7} className="p-6 text-center text-gray-600 bg-white">
                       No hay empleados registrados todavía.
                     </td>
                   </tr>
                 ) : (
                   empleados.map((empleado) => (
-                    <tr key={empleado.id_empleado} className="border-t border-slate-800">
-                      <td className="p-4">{empleado.dni_empleado}</td>
-                      <td className="p-4">{empleado.codigo_empleado}</td>
-                      <td className="p-4">{empleado.nombre_completo}</td>
-                      <td className="p-4">{empleado.puestos?.[0]?.nombre_puesto || '-'}</td>
-                      <td className="p-4 text-right">
+                    <tr key={empleado.id_empleado} className="bg-white text-black">
+                      <td className="p-4 border border-gray-200">{empleado.dni_empleado}</td>
+                      <td className="p-4 border border-gray-200">{empleado.codigo_empleado}</td>
+                      <td className="p-4 border border-gray-200">{empleado.nombre_completo}</td>
+                      <td className="p-4 border border-gray-200">
+                        {empleado.puestos?.[0]?.nombre_puesto || '-'}
+                      </td>
+                      <td className="p-4 border border-gray-200 text-right">
                         L {Number(empleado.salario || 0).toFixed(2)}
                       </td>
-                      <td className="p-4 text-center">
+                      <td className="p-4 border border-gray-200 text-center">
                         {formatearFecha(empleado.fecha_ingreso)}
                       </td>
-                      <td className="p-4 text-center">{empleado.estado_laboral}</td>
+                      <td className="p-4 border border-gray-200 text-center">
+                        {empleado.estado_laboral}
+                      </td>
                     </tr>
                   ))
                 )}

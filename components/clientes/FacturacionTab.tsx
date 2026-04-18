@@ -449,127 +449,129 @@ export default function FacturacionTab() {
 
   if (cargandoBase) {
     return (
-      <div className="rounded-xl border border-slate-700 bg-slate-900 p-6">
+      <div className="rounded-2xl border border-gray-300 bg-gray-50 p-6 text-gray-800 shadow-sm">
         Cargando datos de facturación...
       </div>
     )
   }
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-4">Facturación</h2>
+    <div className="text-black">
+      <h2 className="text-2xl font-bold mb-4 text-black">Facturación</h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div>
-          <label className="block mb-1 font-medium">Nombre de cliente</label>
-          <input
-            type="text"
-            list="clientes-existentes"
-            value={nombreCliente}
-            onChange={(e) => seleccionarClientePorNombre(e.target.value)}
-            placeholder="Escriba o seleccione el cliente"
-            className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
-          />
-          <datalist id="clientes-existentes">
-            {clientes.map((cliente) => (
-              <option key={cliente.id_cliente} value={cliente.nombre_cliente} />
-            ))}
-          </datalist>
+      <div className="bg-gray-50 border border-gray-300 rounded-2xl p-6 shadow-sm mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-0">
+          <div>
+            <label className="block mb-1 font-medium text-black">Nombre de cliente</label>
+            <input
+              type="text"
+              list="clientes-existentes"
+              value={nombreCliente}
+              onChange={(e) => seleccionarClientePorNombre(e.target.value)}
+              placeholder="Escriba o seleccione el cliente"
+              className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
+            />
+            <datalist id="clientes-existentes">
+              {clientes.map((cliente) => (
+                <option key={cliente.id_cliente} value={cliente.nombre_cliente} />
+              ))}
+            </datalist>
 
-          {!idCliente && nombreCliente.trim() !== '' && (
-            <p className="text-xs text-amber-300 mt-2">
-              Ese cliente no existe todavía. Créelo en la pestaña Clientes.
-            </p>
-          )}
-        </div>
+            {!idCliente && nombreCliente.trim() !== '' && (
+              <p className="text-xs text-amber-600 mt-2">
+                Ese cliente no existe todavía. Créelo en la pestaña Clientes.
+              </p>
+            )}
+          </div>
 
-        <div>
-          <label className="block mb-1 font-medium">Fecha de factura</label>
-          <input
-            type="date"
-            value={fechaFactura}
-            onChange={(e) => setFechaFactura(e.target.value)}
-            className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
-          />
-        </div>
+          <div>
+            <label className="block mb-1 font-medium text-black">Fecha de factura</label>
+            <input
+              type="date"
+              value={fechaFactura}
+              onChange={(e) => setFechaFactura(e.target.value)}
+              className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black"
+            />
+          </div>
 
-        <div>
-          <label className="block mb-1 font-medium">Dirección</label>
-          <input
-            type="text"
-            value={direccion}
-            onChange={(e) => setDireccion(e.target.value)}
-            placeholder="Dirección del cliente"
-            className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
-          />
-        </div>
+          <div>
+            <label className="block mb-1 font-medium text-black">Dirección</label>
+            <input
+              type="text"
+              value={direccion}
+              onChange={(e) => setDireccion(e.target.value)}
+              placeholder="Dirección del cliente"
+              className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
+            />
+          </div>
 
-        <div>
-          <label className="block mb-1 font-medium">Correo</label>
-          <input
-            type="email"
-            value={correo}
-            onChange={(e) => setCorreo(e.target.value)}
-            placeholder="correo@ejemplo.com"
-            className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
-          />
-        </div>
+          <div>
+            <label className="block mb-1 font-medium text-black">Correo</label>
+            <input
+              type="email"
+              value={correo}
+              onChange={(e) => setCorreo(e.target.value)}
+              placeholder="correo@ejemplo.com"
+              className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
+            />
+          </div>
 
-        <div>
-          <label className="block mb-1 font-medium">Teléfono</label>
-          <input
-            type="text"
-            value={telefono}
-            onChange={(e) => setTelefono(e.target.value)}
-            placeholder="9999-9999"
-            className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
-          />
-        </div>
+          <div>
+            <label className="block mb-1 font-medium text-black">Teléfono</label>
+            <input
+              type="text"
+              value={telefono}
+              onChange={(e) => setTelefono(e.target.value)}
+              placeholder="9999-9999"
+              className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
+            />
+          </div>
 
-        <div>
-          <label className="block mb-1 font-medium">RTN</label>
-          <input
-            type="text"
-            value={rtn}
-            onChange={(e) => setRtn(e.target.value)}
-            placeholder="RTN del cliente"
-            className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
-          />
-        </div>
+          <div>
+            <label className="block mb-1 font-medium text-black">RTN</label>
+            <input
+              type="text"
+              value={rtn}
+              onChange={(e) => setRtn(e.target.value)}
+              placeholder="RTN del cliente"
+              className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
+            />
+          </div>
 
-        <div className="md:col-span-2">
-          <label className="block mb-1 font-medium">Secuencia Fiscal</label>
-          <select
-            value={idCorrelativo}
-            onChange={cambiarCorrelativo}
-            className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
-          >
-            <option value="">Seleccione una secuencia</option>
-            {correlativos.map((correlativo) => (
-              <option
-                key={correlativo.id_correlativo}
-                value={correlativo.id_correlativo}
-              >
-                {correlativo.secuencia_fiscal}
-              </option>
-            ))}
-          </select>
+          <div className="md:col-span-2">
+            <label className="block mb-1 font-medium text-black">Secuencia Fiscal</label>
+            <select
+              value={idCorrelativo}
+              onChange={cambiarCorrelativo}
+              className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black"
+            >
+              <option value="">Seleccione una secuencia</option>
+              {correlativos.map((correlativo) => (
+                <option
+                  key={correlativo.id_correlativo}
+                  value={correlativo.id_correlativo}
+                >
+                  {correlativo.secuencia_fiscal}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
-      <div className="mb-6">
-        <h3 className="text-xl font-semibold mb-3">Detalle de la factura</h3>
+      <div className="bg-gray-50 border border-gray-300 rounded-2xl p-6 shadow-sm mb-6">
+        <h3 className="text-xl font-semibold mb-3 text-black">Detalle de la factura</h3>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
           <table className="w-full border-collapse">
             <thead>
-              <tr className="bg-slate-800 text-left">
-                <th className="p-3 border border-slate-700">Producto</th>
-                <th className="p-3 border border-slate-700">Cantidad</th>
-                <th className="p-3 border border-slate-700">Precio</th>
-                <th className="p-3 border border-slate-700">Impuesto</th>
-                <th className="p-3 border border-slate-700">Subtotal</th>
-                <th className="p-3 border border-slate-700">Acción</th>
+              <tr className="bg-gray-100 text-left text-black">
+                <th className="p-3 border border-gray-200">Producto</th>
+                <th className="p-3 border border-gray-200">Cantidad</th>
+                <th className="p-3 border border-gray-200">Precio</th>
+                <th className="p-3 border border-gray-200">Impuesto</th>
+                <th className="p-3 border border-gray-200">Subtotal</th>
+                <th className="p-3 border border-gray-200">Acción</th>
               </tr>
             </thead>
             <tbody>
@@ -581,12 +583,12 @@ export default function FacturacionTab() {
                   Number(linea.porcentaje_impuesto) === 15 ? 'ISV 15%' : 'Exento'
 
                 return (
-                  <tr key={linea.idFila}>
-                    <td className="p-3 border border-slate-700">
+                  <tr key={linea.idFila} className="bg-white text-black">
+                    <td className="p-3 border border-gray-200">
                       <select
                         value={linea.id_producto}
                         onChange={(e) => cambiarProductoLinea(index, e)}
-                        className="w-full rounded bg-slate-800 border border-slate-600 px-2 py-1 text-white"
+                        className="w-full rounded bg-white border border-gray-300 px-2 py-1 text-black"
                       >
                         <option value="">Seleccione un producto</option>
                         {productos.map((producto) => (
@@ -597,46 +599,46 @@ export default function FacturacionTab() {
                       </select>
 
                       {productoSeleccionado && (
-                        <p className="text-xs text-slate-400 mt-2">
+                        <p className="text-xs text-gray-500 mt-2">
                           Stock disponible: {productoSeleccionado.stock_actual ?? 0}
                         </p>
                       )}
                     </td>
 
-                    <td className="p-3 border border-slate-700">
+                    <td className="p-3 border border-gray-200">
                       <input
                         type="number"
                         min="1"
                         value={linea.cantidad}
                         onChange={(e) => cambiarCantidadLinea(index, e)}
-                        className="w-full rounded bg-slate-800 border border-slate-600 px-2 py-1 text-white"
+                        className="w-full rounded bg-white border border-gray-300 px-2 py-1 text-black"
                       />
                     </td>
 
-                    <td className="p-3 border border-slate-700">
+                    <td className="p-3 border border-gray-200">
                       <input
                         type="number"
                         min="0"
                         step="0.01"
                         value={linea.precio_unitario}
                         onChange={(e) => cambiarPrecioLinea(index, e)}
-                        className="w-full rounded bg-slate-800 border border-slate-600 px-2 py-1 text-white"
+                        className="w-full rounded bg-white border border-gray-300 px-2 py-1 text-black"
                       />
                     </td>
 
-                    <td className="p-3 border border-slate-700">
-                      <div className="rounded bg-slate-800 border border-slate-600 px-2 py-1 text-white">
+                    <td className="p-3 border border-gray-200">
+                      <div className="rounded bg-gray-100 border border-gray-300 px-2 py-1 text-black">
                         {impuestoTexto}
                       </div>
                     </td>
 
-                    <td className="p-3 border border-slate-700">
-                      <div className="rounded bg-slate-800 border border-slate-600 px-2 py-1 text-white">
+                    <td className="p-3 border border-gray-200">
+                      <div className="rounded bg-gray-100 border border-gray-300 px-2 py-1 text-black">
                         {moneda(linea.total_linea)}
                       </div>
                     </td>
 
-                    <td className="p-3 border border-slate-700">
+                    <td className="p-3 border border-gray-200">
                       <button
                         onClick={() => eliminarLinea(linea.idFila)}
                         className="px-3 py-1 rounded bg-red-600 hover:bg-red-500 text-white"
@@ -653,28 +655,28 @@ export default function FacturacionTab() {
 
         <button
           onClick={agregarLinea}
-          className="mt-4 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 font-semibold"
+          className="mt-4 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
         >
           Agregar línea
         </button>
       </div>
 
       {mensaje && (
-        <div className="mb-6 rounded-lg border border-slate-600 bg-slate-800 px-4 py-3 text-sm">
+        <div className="mb-6 rounded-xl border border-gray-300 bg-gray-100 px-4 py-3 text-sm text-black shadow-sm">
           {mensaje}
         </div>
       )}
 
-      <div className="max-w-md ml-auto bg-slate-800 rounded-xl p-4 border border-slate-700">
-        <div className="flex justify-between mb-2">
+      <div className="max-w-md ml-auto bg-gray-50 rounded-2xl p-4 border border-gray-300 shadow-sm">
+        <div className="flex justify-between mb-2 text-black">
           <span>Subtotal sin impuesto:</span>
           <span>{moneda(totales.subtotal)}</span>
         </div>
-        <div className="flex justify-between mb-2">
+        <div className="flex justify-between mb-2 text-black">
           <span>Impuesto:</span>
           <span>{moneda(totales.impuesto)}</span>
         </div>
-        <div className="flex justify-between font-bold text-lg border-t border-slate-600 pt-2">
+        <div className="flex justify-between font-bold text-lg border-t border-gray-300 pt-2 text-black">
           <span>Total factura:</span>
           <span>{moneda(totales.total)}</span>
         </div>
@@ -684,7 +686,7 @@ export default function FacturacionTab() {
         <button
           onClick={guardarFactura}
           disabled={guardando}
-          className="px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-semibold disabled:opacity-50"
+          className="px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold disabled:opacity-50"
         >
           {guardando ? 'Creando factura...' : 'Crear factura'}
         </button>

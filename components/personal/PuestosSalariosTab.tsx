@@ -93,54 +93,51 @@ export default function PuestosSalariosTab() {
   }
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-4">Puestos y Salarios</h2>
+    <div className="text-black">
+      <h2 className="text-2xl font-bold mb-4 text-black">Puestos y Salarios</h2>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <div className="lg:col-span-2 bg-slate-950 border border-slate-700 rounded-2xl p-6">
-          <h3 className="text-xl font-semibold text-cyan-400 underline mb-6">
+        <div className="lg:col-span-2 bg-gray-50 border border-gray-300 rounded-2xl p-6 shadow-sm">
+          <h3 className="text-xl font-semibold text-gray-800 underline mb-6">
             Nuevo Puesto
           </h3>
 
           <div className="space-y-4">
             <div>
-              <label className="block mb-1">Nombre del puesto:</label>
+              <label className="block mb-1 text-black">Nombre del puesto:</label>
               <input
                 type="text"
                 value={nombrePuesto}
                 onChange={(e) => setNombrePuesto(e.target.value)}
-                placeholder="Ejemplo: Ventas"
-                className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
+                placeholder="Ejemplo: Contabilidad"
+                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
               />
             </div>
 
             <div>
-              <label className="block mb-1">Prefijo del puesto:</label>
+              <label className="block mb-1 text-black">Prefijo del puesto:</label>
               <input
                 type="text"
                 value={prefijoPuesto}
-                onChange={(e) => setPrefijoPuesto(e.target.value.toUpperCase())}
-                placeholder="Ejemplo: EV"
-                maxLength={10}
-                className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white uppercase"
+                onChange={(e) => setPrefijoPuesto(e.target.value)}
+                placeholder="Ejemplo: ECO"
+                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
               />
             </div>
 
             <div>
-              <label className="block mb-1">Salario base:</label>
+              <label className="block mb-1 text-black">Salario Base:</label>
               <input
                 type="number"
                 value={salarioBase}
                 onChange={(e) => setSalarioBase(e.target.value)}
-                placeholder="Ejemplo: 12000"
-                min="0"
-                step="0.01"
-                className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
+                placeholder="Ejemplo: 14000"
+                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
               />
             </div>
 
             {mensaje && (
-              <div className="rounded-lg border border-slate-600 bg-slate-800 px-4 py-3 text-sm">
+              <div className="rounded-lg border border-gray-300 bg-gray-100 px-4 py-3 text-sm text-black">
                 {mensaje}
               </div>
             )}
@@ -149,7 +146,7 @@ export default function PuestosSalariosTab() {
               <button
                 onClick={guardarPuesto}
                 disabled={cargando}
-                className="w-full px-4 py-3 rounded-lg bg-cyan-600 hover:bg-cyan-500 font-semibold disabled:opacity-50"
+                className="w-full px-4 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold disabled:opacity-50"
               >
                 {cargando ? 'Guardando...' : 'Guardar puesto'}
               </button>
@@ -157,7 +154,7 @@ export default function PuestosSalariosTab() {
               <button
                 onClick={limpiarFormulario}
                 type="button"
-                className="px-4 py-3 rounded-lg bg-slate-700 hover:bg-slate-600 font-semibold"
+                className="px-4 py-3 rounded-lg bg-gray-200 hover:bg-gray-300 text-black font-semibold"
               >
                 Limpiar
               </button>
@@ -165,34 +162,37 @@ export default function PuestosSalariosTab() {
           </div>
         </div>
 
-        <div className="lg:col-span-3 bg-slate-950 border border-slate-700 rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="lg:col-span-3 bg-gray-50 border border-gray-300 rounded-2xl p-4 shadow-sm">
+          <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
             <table className="w-full border-collapse">
               <thead>
-                <tr className="bg-slate-800 text-cyan-400">
-                  <th className="p-4 text-left">ID</th>
-                  <th className="p-4 text-left">Puesto</th>
-                  <th className="p-4 text-left">Prefijo</th>
-                  <th className="p-4 text-right">Salario Base</th>
+                <tr className="bg-gray-100 text-black">
+                  <th className="p-4 text-left border border-gray-200">ID</th>
+                  <th className="p-4 text-left border border-gray-200">Puesto</th>
+                  <th className="p-4 text-left border border-gray-200">Prefijo</th>
+                  <th className="p-4 text-right border border-gray-200">Salario Base</th>
                 </tr>
               </thead>
               <tbody>
-                {puestos.length === 0 ? (
+                {cargando ? (
                   <tr>
-                    <td colSpan={4} className="p-6 text-center text-slate-300">
+                    <td colSpan={4} className="p-6 text-center text-gray-600 bg-white">
+                      Cargando puestos...
+                    </td>
+                  </tr>
+                ) : puestos.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="p-6 text-center text-gray-600 bg-white">
                       No hay puestos registrados todavía.
                     </td>
                   </tr>
                 ) : (
                   puestos.map((puesto) => (
-                    <tr
-                      key={puesto.id_puesto}
-                      className="border-t border-slate-800"
-                    >
-                      <td className="p-4">{puesto.id_puesto}</td>
-                      <td className="p-4">{puesto.nombre_puesto}</td>
-                      <td className="p-4">{puesto.prefijo_puesto}</td>
-                      <td className="p-4 text-right">
+                    <tr key={puesto.id_puesto} className="bg-white text-black">
+                      <td className="p-4 border border-gray-200">{puesto.id_puesto}</td>
+                      <td className="p-4 border border-gray-200">{puesto.nombre_puesto}</td>
+                      <td className="p-4 border border-gray-200">{puesto.prefijo_puesto}</td>
+                      <td className="p-4 border border-gray-200 text-right">
                         L {Number(puesto.salario_base || 0).toFixed(2)}
                       </td>
                     </tr>

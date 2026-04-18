@@ -79,99 +79,97 @@ export default function ReporteProductos() {
 
   if (cargando) {
     return (
-      <div className="rounded-xl border border-slate-700 bg-slate-900 p-6 text-white">
+      <div className="rounded-2xl border border-gray-300 bg-gray-50 p-6 text-gray-800 shadow-sm">
         Cargando productos...
       </div>
     )
   }
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-4">Productos</h2>
+    <div className="text-black">
+      <h2 className="text-2xl font-bold mb-4 text-black">Productos</h2>
 
-      <div className="mb-6 flex flex-col md:flex-row md:items-end gap-4">
-        <div className="w-full md:w-80">
-          <label className="block mb-1 font-medium text-white">Filtrar por categoría</label>
-          <select
-            value={filtroCategoria}
-            onChange={(e) => setFiltroCategoria(e.target.value)}
-            className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
-          >
-            {categorias.map((categoria) => (
-              <option key={categoria} value={categoria}>
-                {categoria}
-              </option>
-            ))}
-          </select>
+      <div className="bg-gray-50 border border-gray-300 rounded-2xl p-6 shadow-sm">
+        <div className="mb-6 flex flex-col md:flex-row md:items-end gap-4">
+          <div className="w-full md:w-80">
+            <label className="block mb-1 font-medium text-black">Filtrar por categoría</label>
+            <select
+              value={filtroCategoria}
+              onChange={(e) => setFiltroCategoria(e.target.value)}
+              className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black"
+            >
+              {categorias.map((categoria) => (
+                <option key={categoria} value={categoria}>
+                  {categoria}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="text-sm text-gray-600">
+            Mostrando {productosFiltrados.length} producto(s)
+          </div>
         </div>
 
-        <div className="text-sm text-slate-300">
-          Mostrando {productosFiltrados.length} producto(s)
-        </div>
-      </div>
+        {mensaje && (
+          <div className="mb-4 rounded-lg border border-gray-300 bg-gray-100 px-4 py-3 text-sm text-black">
+            {mensaje}
+          </div>
+        )}
 
-      {mensaje && (
-        <div className="mb-4 rounded-lg border border-slate-600 bg-slate-800 px-4 py-3 text-sm text-white">
-          {mensaje}
-        </div>
-      )}
-
-      <div className="overflow-x-auto rounded-xl border border-slate-700">
-        <table className="w-full border-collapse">
-          <thead className="bg-slate-800 text-white">
-            <tr>
-              <th className="p-3 text-left border border-slate-700">Código</th>
-              <th className="p-3 text-left border border-slate-700">Descripción</th>
-              <th className="p-3 text-left border border-slate-700">Categoría</th>
-              <th className="p-3 text-left border border-slate-700">Unidad</th>
-              <th className="p-3 text-right border border-slate-700">Precio Compra</th>
-              <th className="p-3 text-right border border-slate-700">Precio Venta</th>
-              <th className="p-3 text-center border border-slate-700">Impuesto</th>
-              <th className="p-3 text-center border border-slate-700">Stock</th>
-              <th className="p-3 text-center border border-slate-700">Fecha Registro</th>
-            </tr>
-          </thead>
-          <tbody>
-            {productosFiltrados.length === 0 ? (
+        <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
+          <table className="w-full border-collapse">
+            <thead className="bg-gray-100 text-black">
               <tr>
-                <td
-                  colSpan={9}
-                  className="p-4 text-center border border-slate-700 bg-slate-900 text-slate-300"
-                >
-                  No hay productos para mostrar con ese filtro.
-                </td>
+                <th className="p-3 text-left border border-gray-200">ID</th>
+                <th className="p-3 text-left border border-gray-200">Descripción</th>
+                <th className="p-3 text-left border border-gray-200">Categoría</th>
+                <th className="p-3 text-left border border-gray-200">Unidad</th>
+                <th className="p-3 text-right border border-gray-200">Precio compra</th>
+                <th className="p-3 text-right border border-gray-200">Precio venta</th>
+                <th className="p-3 text-center border border-gray-200">Stock</th>
+                <th className="p-3 text-center border border-gray-200">Impuesto</th>
+                <th className="p-3 text-center border border-gray-200">Fecha registro</th>
               </tr>
-            ) : (
-              productosFiltrados.map((producto) => (
-                <tr key={producto.id_producto} className="bg-slate-900 text-white">
-                  <td className="p-3 border border-slate-700">{producto.id_producto}</td>
-                  <td className="p-3 border border-slate-700">{producto.descripcion}</td>
-                  <td className="p-3 border border-slate-700">
-                    {producto.categoria || '-'}
-                  </td>
-                  <td className="p-3 border border-slate-700">
-                    {producto.unidad_medida || '-'}
-                  </td>
-                  <td className="p-3 border border-slate-700 text-right">
-                    {moneda(producto.precio_compra)}
-                  </td>
-                  <td className="p-3 border border-slate-700 text-right">
-                    {moneda(producto.precio_venta)}
-                  </td>
-                  <td className="p-3 border border-slate-700 text-center">
-                    {Number(producto.impuesto || 0) === 15 ? 'ISV 15%' : 'Exento'}
-                  </td>
-                  <td className="p-3 border border-slate-700 text-center">
-                    {producto.stock_actual ?? 0}
-                  </td>
-                  <td className="p-3 border border-slate-700 text-center">
-                    {formatearFecha(producto.fecha_registro)}
+            </thead>
+            <tbody>
+              {productosFiltrados.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={9}
+                    className="p-4 text-center border border-gray-200 bg-white text-gray-500"
+                  >
+                    No hay productos para mostrar.
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                productosFiltrados.map((producto) => (
+                  <tr key={producto.id_producto} className="bg-white text-black">
+                    <td className="p-3 border border-gray-200">{producto.id_producto}</td>
+                    <td className="p-3 border border-gray-200">{producto.descripcion}</td>
+                    <td className="p-3 border border-gray-200">{producto.categoria || '-'}</td>
+                    <td className="p-3 border border-gray-200">{producto.unidad_medida || '-'}</td>
+                    <td className="p-3 border border-gray-200 text-right">
+                      {moneda(producto.precio_compra)}
+                    </td>
+                    <td className="p-3 border border-gray-200 text-right">
+                      {moneda(producto.precio_venta)}
+                    </td>
+                    <td className="p-3 border border-gray-200 text-center">
+                      {producto.stock_actual ?? 0}
+                    </td>
+                    <td className="p-3 border border-gray-200 text-center">
+                      {Number(producto.impuesto || 0) === 15 ? 'ISV 15%' : 'Exento'}
+                    </td>
+                    <td className="p-3 border border-gray-200 text-center">
+                      {formatearFecha(producto.fecha_registro)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )

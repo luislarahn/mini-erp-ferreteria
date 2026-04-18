@@ -133,52 +133,54 @@ export default function ReportesTab() {
   }, [clientes, busquedaCliente])
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-4">Reportes</h2>
+    <div className="text-black">
+      <h2 className="text-2xl font-bold mb-4 text-black">Reportes</h2>
 
-      <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="block mb-1 font-medium">Seleccione un reporte</label>
-          <select
-            value={tipoReporte}
-            onChange={(e) => {
-              setTipoReporte(e.target.value as TipoReporte)
-              setMensaje('')
-            }}
-            className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
-          >
-            <option value="ventas">Reporte de Ventas</option>
-            <option value="clientes">Reporte de Clientes</option>
-          </select>
+      <div className="bg-gray-50 border border-gray-300 rounded-2xl p-6 shadow-sm mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block mb-1 font-medium text-black">Seleccione un reporte</label>
+            <select
+              value={tipoReporte}
+              onChange={(e) => {
+                setTipoReporte(e.target.value as TipoReporte)
+                setMensaje('')
+              }}
+              className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black"
+            >
+              <option value="ventas">Reporte de Ventas</option>
+              <option value="clientes">Reporte de Clientes</option>
+            </select>
+          </div>
         </div>
       </div>
 
       {tipoReporte === 'ventas' && (
-        <div>
+        <div className="bg-gray-50 border border-gray-300 rounded-2xl p-6 shadow-sm">
           <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
             <div>
-              <label className="block mb-1 font-medium">Fecha desde</label>
+              <label className="block mb-1 font-medium text-black">Fecha desde</label>
               <input
                 type="date"
                 value={fechaDesde}
                 onChange={(e) => setFechaDesde(e.target.value)}
-                className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
+                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black"
               />
             </div>
 
             <div>
-              <label className="block mb-1 font-medium">Fecha hasta</label>
+              <label className="block mb-1 font-medium text-black">Fecha hasta</label>
               <input
                 type="date"
                 value={fechaHasta}
                 onChange={(e) => setFechaHasta(e.target.value)}
-                className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
+                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black"
               />
             </div>
 
             <button
               onClick={cargarFacturas}
-              className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 font-semibold"
+              className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
             >
               Filtrar ventas
             </button>
@@ -188,39 +190,39 @@ export default function ReportesTab() {
                 limpiarFiltroVentas()
                 setTimeout(() => cargarFacturas(), 0)
               }}
-              className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 font-semibold"
+              className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-black font-semibold"
             >
               Mostrar todas
             </button>
           </div>
 
-          <div className="mb-4 text-sm text-slate-300">
+          <div className="mb-4 text-sm text-gray-600">
             Mostrando {facturas.length} factura(s)
           </div>
 
           {mensaje && (
-            <div className="mb-4 rounded-lg border border-slate-600 bg-slate-800 px-4 py-3 text-sm text-white">
+            <div className="mb-4 rounded-lg border border-gray-300 bg-gray-100 px-4 py-3 text-sm text-black">
               {mensaje}
             </div>
           )}
 
           {cargando ? (
-            <div className="rounded-xl border border-slate-700 bg-slate-900 p-6 text-white">
+            <div className="rounded-xl border border-gray-300 bg-white p-6 text-black">
               Cargando reporte de ventas...
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-slate-700">
+            <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
               <table className="w-full border-collapse">
-                <thead className="bg-slate-800 text-white">
+                <thead className="bg-gray-100 text-black">
                   <tr>
-                    <th className="p-3 text-left border border-slate-700">ID</th>
-                    <th className="p-3 text-left border border-slate-700">Secuencia Fiscal</th>
-                    <th className="p-3 text-left border border-slate-700">Cliente</th>
-                    <th className="p-3 text-center border border-slate-700">Fecha</th>
-                    <th className="p-3 text-right border border-slate-700">Subtotal</th>
-                    <th className="p-3 text-right border border-slate-700">Impuesto</th>
-                    <th className="p-3 text-right border border-slate-700">Total</th>
-                    <th className="p-3 text-center border border-slate-700">Estado</th>
+                    <th className="p-3 text-left border border-gray-200">ID</th>
+                    <th className="p-3 text-left border border-gray-200">Secuencia Fiscal</th>
+                    <th className="p-3 text-left border border-gray-200">Cliente</th>
+                    <th className="p-3 text-center border border-gray-200">Fecha</th>
+                    <th className="p-3 text-right border border-gray-200">Subtotal</th>
+                    <th className="p-3 text-right border border-gray-200">Impuesto</th>
+                    <th className="p-3 text-right border border-gray-200">Total</th>
+                    <th className="p-3 text-center border border-gray-200">Estado</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -228,34 +230,34 @@ export default function ReportesTab() {
                     <tr>
                       <td
                         colSpan={8}
-                        className="p-4 text-center border border-slate-700 bg-slate-900 text-slate-300"
+                        className="p-4 text-center border border-gray-200 bg-white text-gray-500"
                       >
                         No hay facturas para mostrar.
                       </td>
                     </tr>
                   ) : (
                     facturas.map((factura) => (
-                      <tr key={factura.id_factura} className="bg-slate-900 text-white">
-                        <td className="p-3 border border-slate-700">{factura.id_factura}</td>
-                        <td className="p-3 border border-slate-700">
+                      <tr key={factura.id_factura} className="bg-white text-black">
+                        <td className="p-3 border border-gray-200">{factura.id_factura}</td>
+                        <td className="p-3 border border-gray-200">
                           {factura.secuencia_fiscal}
                         </td>
-                        <td className="p-3 border border-slate-700">
+                        <td className="p-3 border border-gray-200">
                           {factura.nombre_cliente}
                         </td>
-                        <td className="p-3 border border-slate-700 text-center">
+                        <td className="p-3 border border-gray-200 text-center">
                           {formatearFecha(factura.fecha_factura)}
                         </td>
-                        <td className="p-3 border border-slate-700 text-right">
+                        <td className="p-3 border border-gray-200 text-right">
                           {moneda(factura.subtotal)}
                         </td>
-                        <td className="p-3 border border-slate-700 text-right">
+                        <td className="p-3 border border-gray-200 text-right">
                           {moneda(factura.impuesto_total)}
                         </td>
-                        <td className="p-3 border border-slate-700 text-right">
+                        <td className="p-3 border border-gray-200 text-right">
                           {moneda(factura.total_factura)}
                         </td>
-                        <td className="p-3 border border-slate-700 text-center">
+                        <td className="p-3 border border-gray-200 text-center">
                           {factura.estado}
                         </td>
                       </tr>
@@ -269,47 +271,47 @@ export default function ReportesTab() {
       )}
 
       {tipoReporte === 'clientes' && (
-        <div>
+        <div className="bg-gray-50 border border-gray-300 rounded-2xl p-6 shadow-sm">
           <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
             <div>
-              <label className="block mb-1 font-medium">Buscar cliente por nombre</label>
+              <label className="block mb-1 font-medium text-black">Buscar cliente por nombre</label>
               <input
                 type="text"
                 value={busquedaCliente}
                 onChange={(e) => setBusquedaCliente(e.target.value)}
                 placeholder="Escriba el nombre del cliente"
-                className="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2 text-white"
+                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
               />
             </div>
 
-            <div className="text-sm text-slate-300">
+            <div className="text-sm text-gray-600">
               Mostrando {clientesFiltrados.length} cliente(s)
             </div>
           </div>
 
           {mensaje && (
-            <div className="mb-4 rounded-lg border border-slate-600 bg-slate-800 px-4 py-3 text-sm text-white">
+            <div className="mb-4 rounded-lg border border-gray-300 bg-gray-100 px-4 py-3 text-sm text-black">
               {mensaje}
             </div>
           )}
 
           {cargando ? (
-            <div className="rounded-xl border border-slate-700 bg-slate-900 p-6 text-white">
+            <div className="rounded-xl border border-gray-300 bg-white p-6 text-black">
               Cargando reporte de clientes...
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-slate-700">
+            <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
               <table className="w-full border-collapse">
-                <thead className="bg-slate-800 text-white">
+                <thead className="bg-gray-100 text-black">
                   <tr>
-                    <th className="p-3 text-left border border-slate-700">ID</th>
-                    <th className="p-3 text-left border border-slate-700">Nombre</th>
-                    <th className="p-3 text-left border border-slate-700">RTN</th>
-                    <th className="p-3 text-left border border-slate-700">Dirección</th>
-                    <th className="p-3 text-left border border-slate-700">Correo</th>
-                    <th className="p-3 text-left border border-slate-700">Teléfono</th>
-                    <th className="p-3 text-left border border-slate-700">Contacto</th>
-                    <th className="p-3 text-center border border-slate-700">Fecha Registro</th>
+                    <th className="p-3 text-left border border-gray-200">ID</th>
+                    <th className="p-3 text-left border border-gray-200">Nombre</th>
+                    <th className="p-3 text-left border border-gray-200">RTN</th>
+                    <th className="p-3 text-left border border-gray-200">Dirección</th>
+                    <th className="p-3 text-left border border-gray-200">Correo</th>
+                    <th className="p-3 text-left border border-gray-200">Teléfono</th>
+                    <th className="p-3 text-left border border-gray-200">Contacto</th>
+                    <th className="p-3 text-center border border-gray-200">Fecha Registro</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -317,30 +319,30 @@ export default function ReportesTab() {
                     <tr>
                       <td
                         colSpan={8}
-                        className="p-4 text-center border border-slate-700 bg-slate-900 text-slate-300"
+                        className="p-4 text-center border border-gray-200 bg-white text-gray-500"
                       >
                         No hay clientes para mostrar.
                       </td>
                     </tr>
                   ) : (
                     clientesFiltrados.map((cliente) => (
-                      <tr key={cliente.id_cliente} className="bg-slate-900 text-white">
-                        <td className="p-3 border border-slate-700">{cliente.id_cliente}</td>
-                        <td className="p-3 border border-slate-700">
+                      <tr key={cliente.id_cliente} className="bg-white text-black">
+                        <td className="p-3 border border-gray-200">{cliente.id_cliente}</td>
+                        <td className="p-3 border border-gray-200">
                           {cliente.nombre_cliente}
                         </td>
-                        <td className="p-3 border border-slate-700">{cliente.rtn || '-'}</td>
-                        <td className="p-3 border border-slate-700">
+                        <td className="p-3 border border-gray-200">{cliente.rtn || '-'}</td>
+                        <td className="p-3 border border-gray-200">
                           {cliente.direccion || '-'}
                         </td>
-                        <td className="p-3 border border-slate-700">{cliente.correo || '-'}</td>
-                        <td className="p-3 border border-slate-700">
+                        <td className="p-3 border border-gray-200">{cliente.correo || '-'}</td>
+                        <td className="p-3 border border-gray-200">
                           {cliente.telefono || '-'}
                         </td>
-                        <td className="p-3 border border-slate-700">
+                        <td className="p-3 border border-gray-200">
                           {cliente.nombre_contacto || '-'}
                         </td>
-                        <td className="p-3 border border-slate-700 text-center">
+                        <td className="p-3 border border-gray-200 text-center">
                           {formatearFecha(cliente.fecha_registro)}
                         </td>
                       </tr>

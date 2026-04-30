@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 
 type PestanaActiva = 'registros' | 'operaciones' | 'reportes'
 type VistaProductos = 'kanban' | 'lista'
+type TipoReporteInventario = 'productos' | 'movimientos'
 
 export default function InventarioPage() {
   const router = useRouter()
@@ -17,8 +18,10 @@ export default function InventarioPage() {
   const [vistaProductos, setVistaProductos] = useState<VistaProductos>('kanban')
 
   const [productos, setProductos] = useState<any[]>([])
+  const [movimientos, setMovimientos] = useState<any[]>([])
   const [descripcionesExistentes, setDescripcionesExistentes] = useState<string[]>([])
   const [categoriasExistentes, setCategoriasExistentes] = useState<string[]>([])
+  const [unidadesExistentes, setUnidadesExistentes] = useState<string[]>([])
 
   const [descripcion, setDescripcion] = useState('')
   const [categoria, setCategoria] = useState('')
@@ -33,6 +36,15 @@ export default function InventarioPage() {
   const [tipoOperacion, setTipoOperacion] = useState('Entrada')
   const [cantidadOperacion, setCantidadOperacion] = useState('')
   const [fechaOperacion, setFechaOperacion] = useState('')
+
+  const [tipoReporte, setTipoReporte] = useState<TipoReporteInventario>('productos')
+  const [filtroCategoriaProducto, setFiltroCategoriaProducto] = useState('Todas')
+  const [filtroUnidadProducto, setFiltroUnidadProducto] = useState('Todas')
+  const [filtroRangoStock, setFiltroRangoStock] = useState('Todos')
+
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState('')
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState('')
+  const [filtroCategoriaMovimiento, setFiltroCategoriaMovimiento] = useState('Todas')
 
   useEffect(() => {
     const auth = localStorage.getItem('miniERPAuth')
@@ -59,6 +71,7 @@ export default function InventarioPage() {
     setFechaRegistro(hoy)
     setFechaOperacion(hoy)
     obtenerProductos()
+    obtenerMovimientos()
   }, [])
 
   useEffect(() => {
@@ -95,12 +108,32 @@ export default function InventarioPage() {
       const descripcionesUnicas = [
         ...new Set(lista.map((p) => p.descripcion).filter(Boolean)),
       ]
+
       const categoriasUnicas = [
         ...new Set(lista.map((p) => p.categoria).filter(Boolean)),
       ]
 
+      const unidadesUnicas = [
+        ...new Set(lista.map((p) => p.unidad_medida).filter(Boolean)),
+      ]
+
       setDescripcionesExistentes(descripcionesUnicas)
       setCategoriasExistentes(categoriasUnicas)
+      setUnidadesExistentes(unidadesUnicas)
+    }
+  }
+
+  async function obtenerMovimientos() {
+    const { data, error } = await supabase
+      .from('movimientos_inventario')
+      .select('*')
+      .order('fecha_registro', { ascending: false })
+      .order('id_movimiento', { ascending: false })
+
+    if (error) {
+      console.log('Error al obtener movimientos:', error)
+    } else {
+      setMovimientos(data || [])
     }
   }
 
@@ -225,6 +258,7 @@ export default function InventarioPage() {
         {
           id_producto: productoExistente.id_producto,
           descripcion: productoExistente.descripcion,
+          categoria: productoExistente.categoria,
           tipo_operacion: tipoOperacion,
           cantidad: cantidad,
           stock_anterior: stockActualNumero,
@@ -242,6 +276,7 @@ export default function InventarioPage() {
     alert('Stock actualizado correctamente')
     limpiarFormularioOperacion()
     obtenerProductos()
+    obtenerMovimientos()
   }
 
   function limpiarFormulario() {
@@ -287,6 +322,47 @@ export default function InventarioPage() {
     localStorage.removeItem('miniERPAuth')
     router.push('/')
   }
+
+  const productosFiltradosReporte = useMemo(() => {
+    return productos.filter((p) => {
+      const cumpleCategoria =
+        filtroCategoriaProducto === 'Todas' || p.categoria === filtroCategoriaProducto
+
+      const cumpleUnidad =
+        filtroUnidadProducto === 'Todas' || p.unidad_medida === filtroUnidadProducto
+
+      const stock = Number(p.stock_actual || 0)
+
+      let cumpleStock = true
+
+      if (filtroRangoStock === '0') cumpleStock = stock === 0
+if (filtroRangoStock === '1-100') cumpleStock = stock >= 1 && stock <= 100
+if (filtroRangoStock === '101-200') cumpleStock = stock >= 101 && stock <= 200
+if (filtroRangoStock === '201-300') cumpleStock = stock >= 201 && stock <= 300
+if (filtroRangoStock === '301-400') cumpleStock = stock >= 301 && stock <= 400
+if (filtroRangoStock === '401-500') cumpleStock = stock >= 401 && stock <= 500
+if (filtroRangoStock === 'mayor-500') cumpleStock = stock > 500
+
+      return cumpleCategoria && cumpleUnidad && cumpleStock
+    })
+  }, [productos, filtroCategoriaProducto, filtroUnidadProducto, filtroRangoStock])
+
+  const movimientosFiltradosReporte = useMemo(() => {
+    return movimientos.filter((m) => {
+      const cumpleCategoria =
+        filtroCategoriaMovimiento === 'Todas' || m.categoria === filtroCategoriaMovimiento
+
+      const fecha = m.fecha_registro || ''
+
+      const cumpleFechaDesde =
+        !filtroFechaDesde || fecha >= filtroFechaDesde
+
+      const cumpleFechaHasta =
+        !filtroFechaHasta || fecha <= filtroFechaHasta
+
+      return cumpleCategoria && cumpleFechaDesde && cumpleFechaHasta
+    })
+  }, [movimientos, filtroCategoriaMovimiento, filtroFechaDesde, filtroFechaHasta])
 
   function estiloPestana(activa: boolean) {
     return {
@@ -338,6 +414,33 @@ export default function InventarioPage() {
     fontSize: '14px',
   }
 
+  const estiloCaja = {
+    backgroundColor: '#F9FAFB',
+    border: '1px solid #D1D5DB',
+    borderRadius: '24px',
+    padding: '28px',
+    boxShadow: '0 10px 24px rgba(0,0,0,0.05)',
+  }
+
+  const estiloTablaContenedor = {
+    overflowX: 'auto' as const,
+    border: '1px solid #E5E7EB',
+    borderRadius: '16px',
+    backgroundColor: '#FFFFFF',
+  }
+
+  const estiloTh = {
+    padding: '14px',
+    textAlign: 'left' as const,
+    color: '#374151',
+    borderBottom: '1px solid #E5E7EB',
+  }
+
+  const estiloTd = {
+    padding: '14px',
+    borderBottom: '1px solid #F3F4F6',
+  }
+
   return (
     <div
       style={{
@@ -366,35 +469,15 @@ export default function InventarioPage() {
           }}
         >
           <div>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: '28px',
-                fontWeight: 'bold',
-                color: '#0F172A',
-                lineHeight: 1.1,
-              }}
-            >
+            <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 'bold', color: '#0F172A' }}>
               Ferretería PROIS
             </h1>
-            <p
-              style={{
-                margin: '6px 0 0 0',
-                fontSize: '14px',
-                color: '#6B7280',
-                fontStyle: 'italic',
-              }}
-            >
+            <p style={{ margin: '6px 0 0 0', fontSize: '14px', color: '#6B7280', fontStyle: 'italic' }}>
               “Todo para construir con confianza.”
             </p>
           </div>
 
-          <div
-            ref={menuRef}
-            style={{
-              position: 'relative',
-            }}
-          >
+          <div ref={menuRef} style={{ position: 'relative' }}>
             <button
               onClick={() => setMenuAbierto(!menuAbierto)}
               style={{
@@ -447,78 +530,15 @@ export default function InventarioPage() {
                   zIndex: 1000,
                 }}
               >
-                <div
-                  style={{
-                    padding: '14px 16px',
-                    borderBottom: '1px solid #F3F4F6',
-                    backgroundColor: '#FAFAFA',
-                  }}
-                >
-                  <div
-                    style={{
-                      fontWeight: 'bold',
-                      color: '#111827',
-                      fontSize: '14px',
-                    }}
-                  >
-                    Admin
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      color: '#6B7280',
-                      marginTop: '4px',
-                    }}
-                  >
-                    Usuario del sistema
-                  </div>
-                </div>
-
-                <Link
-                  href="/documentacion"
-                  style={{
-                    display: 'block',
-                    padding: '13px 16px',
-                    textDecoration: 'none',
-                    color: '#374151',
-                    fontSize: '14px',
-                    borderBottom: '1px solid #F3F4F6',
-                  }}
-                  onClick={() => setMenuAbierto(false)}
-                >
+                <Link href="/documentacion" style={{ display: 'block', padding: '13px 16px', textDecoration: 'none', color: '#374151' }}>
                   Documentación
                 </Link>
-
-                <Link
-                  href="/soporte"
-                  style={{
-                    display: 'block',
-                    padding: '13px 16px',
-                    textDecoration: 'none',
-                    color: '#374151',
-                    fontSize: '14px',
-                    borderBottom: '1px solid #F3F4F6',
-                  }}
-                  onClick={() => setMenuAbierto(false)}
-                >
+                <Link href="/soporte" style={{ display: 'block', padding: '13px 16px', textDecoration: 'none', color: '#374151' }}>
                   Soporte
                 </Link>
-
-                <Link
-                  href="/preferencias"
-                  style={{
-                    display: 'block',
-                    padding: '13px 16px',
-                    textDecoration: 'none',
-                    color: '#374151',
-                    fontSize: '14px',
-                    borderBottom: '1px solid #F3F4F6',
-                  }}
-                  onClick={() => setMenuAbierto(false)}
-                >
+                <Link href="/preferencias" style={{ display: 'block', padding: '13px 16px', textDecoration: 'none', color: '#374151' }}>
                   Preferencias
                 </Link>
-
                 <button
                   onClick={cerrarSesion}
                   style={{
@@ -529,7 +549,6 @@ export default function InventarioPage() {
                     border: 'none',
                     cursor: 'pointer',
                     color: '#B91C1C',
-                    fontSize: '14px',
                     fontWeight: 'bold',
                   }}
                 >
@@ -541,13 +560,7 @@ export default function InventarioPage() {
         </div>
       </header>
 
-      <main
-        style={{
-          maxWidth: '1280px',
-          margin: '0 auto',
-          padding: '32px',
-        }}
-      >
+      <main style={{ maxWidth: '1280px', margin: '0 auto', padding: '32px' }}>
         <a
           href="/dashboard"
           style={{
@@ -562,73 +575,35 @@ export default function InventarioPage() {
             padding: '12px 16px',
             borderRadius: '12px',
             border: '1px solid #E5E7EB',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
           }}
         >
           ← Volver al dashboard
         </a>
 
         <div style={{ marginBottom: '22px' }}>
-          <button
-            type="button"
-            onClick={() => setPestanaActiva('registros')}
-            style={estiloPestana(pestanaActiva === 'registros')}
-          >
+          <button type="button" onClick={() => setPestanaActiva('registros')} style={estiloPestana(pestanaActiva === 'registros')}>
             Registros
           </button>
-
-          <button
-            type="button"
-            onClick={() => setPestanaActiva('operaciones')}
-            style={estiloPestana(pestanaActiva === 'operaciones')}
-          >
+          <button type="button" onClick={() => setPestanaActiva('operaciones')} style={estiloPestana(pestanaActiva === 'operaciones')}>
             Operaciones
           </button>
-
-          <button
-            type="button"
-            onClick={() => setPestanaActiva('reportes')}
-            style={estiloPestana(pestanaActiva === 'reportes')}
-          >
+          <button type="button" onClick={() => setPestanaActiva('reportes')} style={estiloPestana(pestanaActiva === 'reportes')}>
             Reportes
           </button>
         </div>
 
         {pestanaActiva === 'registros' && (
           <>
-            <div
-              style={{
-                backgroundColor: '#F9FAFB',
-                border: '1px solid #D1D5DB',
-                borderRadius: '24px',
-                padding: '28px',
-                marginBottom: '24px',
-                boxShadow: '0 10px 24px rgba(0,0,0,0.05)',
-              }}
-            >
+            <div style={{ ...estiloCaja, marginBottom: '24px' }}>
               <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#111827' }}>
                 Registro de productos
               </h2>
 
               <form onSubmit={guardarProducto}>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                    gap: '18px',
-                  }}
-                >
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '18px' }}>
                   <div>
                     <label style={estiloLabel}>Descripción</label>
-                    <input
-                      type="text"
-                      list="lista-descripciones"
-                      value={descripcion}
-                      onChange={(e) => setDescripcion(e.target.value)}
-                      required
-                      placeholder="Escriba o seleccione una descripción"
-                      style={estiloInput}
-                    />
+                    <input type="text" list="lista-descripciones" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} required placeholder="Escriba o seleccione una descripción" style={estiloInput} />
                     <datalist id="lista-descripciones">
                       {descripcionesExistentes.map((item, index) => (
                         <option key={index} value={item} />
@@ -638,15 +613,7 @@ export default function InventarioPage() {
 
                   <div>
                     <label style={estiloLabel}>Categoría</label>
-                    <input
-                      type="text"
-                      list="lista-categorias"
-                      value={categoria}
-                      onChange={(e) => setCategoria(e.target.value)}
-                      required
-                      placeholder="Se autocompleta si la descripción ya existe"
-                      style={estiloInput}
-                    />
+                    <input type="text" list="lista-categorias" value={categoria} onChange={(e) => setCategoria(e.target.value)} required placeholder="Categoría" style={estiloInput} />
                     <datalist id="lista-categorias">
                       {categoriasExistentes.map((item, index) => (
                         <option key={index} value={item} />
@@ -656,59 +623,27 @@ export default function InventarioPage() {
 
                   <div>
                     <label style={estiloLabel}>Unidad de medida</label>
-                    <input
-                      type="text"
-                      value={unidadMedida}
-                      onChange={(e) => setUnidadMedida(e.target.value)}
-                      required
-                      placeholder="Unidad"
-                      style={estiloInput}
-                    />
+                    <input type="text" value={unidadMedida} onChange={(e) => setUnidadMedida(e.target.value)} required placeholder="Unidad" style={estiloInput} />
                   </div>
 
                   <div>
                     <label style={estiloLabel}>Precio compra</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={precioCompra}
-                      onChange={(e) => setPrecioCompra(e.target.value)}
-                      required
-                      style={estiloInput}
-                    />
+                    <input type="number" step="0.01" value={precioCompra} onChange={(e) => setPrecioCompra(e.target.value)} required style={estiloInput} />
                   </div>
 
                   <div>
                     <label style={estiloLabel}>Precio venta</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={precioVenta}
-                      onChange={(e) => setPrecioVenta(e.target.value)}
-                      required
-                      style={estiloInput}
-                    />
+                    <input type="number" step="0.01" value={precioVenta} onChange={(e) => setPrecioVenta(e.target.value)} required style={estiloInput} />
                   </div>
 
                   <div>
                     <label style={estiloLabel}>Stock actual</label>
-                    <input
-                      type="number"
-                      value={stockActual}
-                      onChange={(e) => setStockActual(e.target.value)}
-                      required
-                      style={estiloInput}
-                    />
+                    <input type="number" value={stockActual} onChange={(e) => setStockActual(e.target.value)} required style={estiloInput} />
                   </div>
 
                   <div>
                     <label style={estiloLabel}>Impuesto</label>
-                    <select
-                      value={tipoImpuesto}
-                      onChange={(e) => setTipoImpuesto(e.target.value)}
-                      required
-                      style={estiloInput}
-                    >
+                    <select value={tipoImpuesto} onChange={(e) => setTipoImpuesto(e.target.value)} required style={estiloInput}>
                       <option value="ISV">ISV (15%)</option>
                       <option value="Exento">Exento (0%)</option>
                     </select>
@@ -716,106 +651,35 @@ export default function InventarioPage() {
 
                   <div>
                     <label style={estiloLabel}>Fecha de registro</label>
-                    <input
-                      type="date"
-                      value={fechaRegistro}
-                      onChange={(e) => setFechaRegistro(e.target.value)}
-                      required
-                      style={estiloInput}
-                    />
+                    <input type="date" value={fechaRegistro} onChange={(e) => setFechaRegistro(e.target.value)} required style={estiloInput} />
                   </div>
                 </div>
 
                 <div style={{ marginTop: '22px' }}>
-                  <button
-                    type="submit"
-                    style={{
-                      padding: '12px 22px',
-                      cursor: 'pointer',
-                      backgroundColor: '#0F766E',
-                      color: '#FFFFFF',
-                      border: 'none',
-                      borderRadius: '12px',
-                      fontWeight: 'bold',
-                      fontSize: '14px',
-                      boxShadow: '0 8px 18px rgba(15,118,110,0.18)',
-                    }}
-                  >
+                  <button type="submit" style={{ padding: '12px 22px', cursor: 'pointer', backgroundColor: '#0F766E', color: '#FFFFFF', border: 'none', borderRadius: '12px', fontWeight: 'bold' }}>
                     Guardar producto
                   </button>
                 </div>
               </form>
             </div>
 
-            <div
-              style={{
-                backgroundColor: '#F9FAFB',
-                border: '1px solid #D1D5DB',
-                borderRadius: '24px',
-                padding: '28px',
-                boxShadow: '0 10px 24px rgba(0,0,0,0.05)',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  gap: '12px',
-                  marginBottom: '20px',
-                }}
-              >
-                <h2 style={{ margin: 0, color: '#111827' }}>
-                  Listado de productos
-                </h2>
-
+            <div style={estiloCaja}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h2 style={{ margin: 0, color: '#111827' }}>Listado de productos</h2>
                 <div>
-                  <button
-                    type="button"
-                    onClick={() => setVistaProductos('kanban')}
-                    style={estiloVista(vistaProductos === 'kanban')}
-                  >
-                    Kanban
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setVistaProductos('lista')}
-                    style={estiloVista(vistaProductos === 'lista')}
-                  >
-                    Lista
-                  </button>
+                  <button type="button" onClick={() => setVistaProductos('kanban')} style={estiloVista(vistaProductos === 'kanban')}>Kanban</button>
+                  <button type="button" onClick={() => setVistaProductos('lista')} style={estiloVista(vistaProductos === 'lista')}>Lista</button>
                 </div>
               </div>
 
               {productos.length === 0 ? (
                 <p style={{ color: '#6B7280' }}>No hay productos para mostrar.</p>
               ) : vistaProductos === 'kanban' ? (
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                    gap: '18px',
-                  }}
-                >
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '18px' }}>
                   {productos.map((p) => (
-                    <div
-                      key={p.id_producto}
-                      style={{
-                        backgroundColor: '#FFFFFF',
-                        border: '1px solid #E5E7EB',
-                        padding: '20px',
-                        borderRadius: '20px',
-                        color: '#111827',
-                        boxShadow: '0 8px 20px rgba(0,0,0,0.04)',
-                      }}
-                    >
-                      <strong style={{ fontSize: '18px', display: 'block', marginBottom: '12px' }}>
-                        {p.descripcion}
-                      </strong>
-
-                      <div style={{ color: '#4B5563', lineHeight: 1.8, fontSize: '14px' }}>
+                    <div key={p.id_producto} style={{ backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', padding: '20px', borderRadius: '20px' }}>
+                      <strong>{p.descripcion}</strong>
+                      <div style={{ color: '#4B5563', lineHeight: 1.8, fontSize: '14px', marginTop: '12px' }}>
                         <div><strong>Categoría:</strong> {p.categoria}</div>
                         <div><strong>Unidad:</strong> {p.unidad_medida}</div>
                         <div><strong>Precio compra:</strong> L {p.precio_compra}</div>
@@ -824,83 +688,41 @@ export default function InventarioPage() {
                         <div><strong>Impuesto:</strong> {Number(p.impuesto) === 0 ? 'Exento (0%)' : 'ISV (15%)'}</div>
                         <div><strong>Fecha registro:</strong> {p.fecha_registro || 'Sin fecha'}</div>
                       </div>
-
-                      <button
-                        onClick={() => eliminarProducto(p.id_producto)}
-                        style={{
-                          marginTop: '16px',
-                          padding: '10px 16px',
-                          cursor: 'pointer',
-                          backgroundColor: '#FEE2E2',
-                          color: '#B91C1C',
-                          border: '1px solid #FECACA',
-                          borderRadius: '12px',
-                          fontWeight: 'bold',
-                        }}
-                      >
+                      <button onClick={() => eliminarProducto(p.id_producto)} style={{ marginTop: '16px', padding: '10px 16px', cursor: 'pointer', backgroundColor: '#FEE2E2', color: '#B91C1C', border: '1px solid #FECACA', borderRadius: '12px', fontWeight: 'bold' }}>
                         Eliminar
                       </button>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div
-                  style={{
-                    overflowX: 'auto',
-                    border: '1px solid #E5E7EB',
-                    borderRadius: '16px',
-                    backgroundColor: '#FFFFFF',
-                  }}
-                >
-                  <table
-                    style={{
-                      width: '100%',
-                      borderCollapse: 'collapse',
-                      backgroundColor: '#FFFFFF',
-                    }}
-                  >
+                <div style={estiloTablaContenedor}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#FFFFFF' }}>
                     <thead>
                       <tr style={{ backgroundColor: '#F3F4F6' }}>
-                        <th style={{ padding: '14px', textAlign: 'left', color: '#374151', borderBottom: '1px solid #E5E7EB' }}>Descripción</th>
-                        <th style={{ padding: '14px', textAlign: 'left', color: '#374151', borderBottom: '1px solid #E5E7EB' }}>Categoría</th>
-                        <th style={{ padding: '14px', textAlign: 'left', color: '#374151', borderBottom: '1px solid #E5E7EB' }}>Unidad</th>
-                        <th style={{ padding: '14px', textAlign: 'left', color: '#374151', borderBottom: '1px solid #E5E7EB' }}>Precio compra</th>
-                        <th style={{ padding: '14px', textAlign: 'left', color: '#374151', borderBottom: '1px solid #E5E7EB' }}>Precio venta</th>
-                        <th style={{ padding: '14px', textAlign: 'left', color: '#374151', borderBottom: '1px solid #E5E7EB' }}>Stock</th>
-                        <th style={{ padding: '14px', textAlign: 'left', color: '#374151', borderBottom: '1px solid #E5E7EB' }}>Impuesto</th>
-                        <th style={{ padding: '14px', textAlign: 'left', color: '#374151', borderBottom: '1px solid #E5E7EB' }}>Fecha registro</th>
-                        <th style={{ padding: '14px', textAlign: 'left', color: '#374151', borderBottom: '1px solid #E5E7EB' }}>Acción</th>
+                        <th style={estiloTh}>Descripción</th>
+                        <th style={estiloTh}>Categoría</th>
+                        <th style={estiloTh}>Unidad</th>
+                        <th style={estiloTh}>Precio compra</th>
+                        <th style={estiloTh}>Precio venta</th>
+                        <th style={estiloTh}>Stock</th>
+                        <th style={estiloTh}>Impuesto</th>
+                        <th style={estiloTh}>Fecha registro</th>
+                        <th style={estiloTh}>Acción</th>
                       </tr>
                     </thead>
                     <tbody>
                       {productos.map((p) => (
-                        <tr key={p.id_producto} style={{ backgroundColor: '#FFFFFF' }}>
-                          <td style={{ padding: '14px', borderBottom: '1px solid #F3F4F6' }}>{p.descripcion}</td>
-                          <td style={{ padding: '14px', borderBottom: '1px solid #F3F4F6' }}>{p.categoria}</td>
-                          <td style={{ padding: '14px', borderBottom: '1px solid #F3F4F6' }}>{p.unidad_medida}</td>
-                          <td style={{ padding: '14px', borderBottom: '1px solid #F3F4F6' }}>L {p.precio_compra}</td>
-                          <td style={{ padding: '14px', borderBottom: '1px solid #F3F4F6' }}>L {p.precio_venta}</td>
-                          <td style={{ padding: '14px', borderBottom: '1px solid #F3F4F6' }}>{p.stock_actual}</td>
-                          <td style={{ padding: '14px', borderBottom: '1px solid #F3F4F6' }}>
-                            {Number(p.impuesto) === 0 ? 'Exento (0%)' : 'ISV (15%)'}
-                          </td>
-                          <td style={{ padding: '14px', borderBottom: '1px solid #F3F4F6' }}>
-                            {p.fecha_registro || 'Sin fecha'}
-                          </td>
-                          <td style={{ padding: '14px', borderBottom: '1px solid #F3F4F6' }}>
-                            <button
-                              onClick={() => eliminarProducto(p.id_producto)}
-                              style={{
-                                padding: '8px 12px',
-                                cursor: 'pointer',
-                                backgroundColor: '#FEE2E2',
-                                color: '#B91C1C',
-                                border: '1px solid #FECACA',
-                                borderRadius: '10px',
-                                fontWeight: 'bold',
-                                fontSize: '12px',
-                              }}
-                            >
+                        <tr key={p.id_producto}>
+                          <td style={estiloTd}>{p.descripcion}</td>
+                          <td style={estiloTd}>{p.categoria}</td>
+                          <td style={estiloTd}>{p.unidad_medida}</td>
+                          <td style={estiloTd}>L {p.precio_compra}</td>
+                          <td style={estiloTd}>L {p.precio_venta}</td>
+                          <td style={estiloTd}>{p.stock_actual}</td>
+                          <td style={estiloTd}>{Number(p.impuesto) === 0 ? 'Exento (0%)' : 'ISV (15%)'}</td>
+                          <td style={estiloTd}>{p.fecha_registro || 'Sin fecha'}</td>
+                          <td style={estiloTd}>
+                            <button onClick={() => eliminarProducto(p.id_producto)} style={{ padding: '8px 12px', cursor: 'pointer', backgroundColor: '#FEE2E2', color: '#B91C1C', border: '1px solid #FECACA', borderRadius: '10px', fontWeight: 'bold' }}>
                               Eliminar
                             </button>
                           </td>
@@ -915,38 +737,16 @@ export default function InventarioPage() {
         )}
 
         {pestanaActiva === 'operaciones' && (
-          <div
-            style={{
-              backgroundColor: '#F9FAFB',
-              border: '1px solid #D1D5DB',
-              borderRadius: '24px',
-              padding: '28px',
-              boxShadow: '0 10px 24px rgba(0,0,0,0.05)',
-            }}
-          >
+          <div style={estiloCaja}>
             <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#111827' }}>
               Operaciones de stock
             </h2>
 
             <form onSubmit={guardarOperacionStock}>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                  gap: '18px',
-                }}
-              >
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '18px' }}>
                 <div>
                   <label style={estiloLabel}>Descripción</label>
-                  <input
-                    type="text"
-                    list="lista-descripciones-operacion"
-                    value={descripcionOperacion}
-                    onChange={(e) => setDescripcionOperacion(e.target.value)}
-                    required
-                    placeholder="Seleccione una descripción existente"
-                    style={estiloInput}
-                  />
+                  <input type="text" list="lista-descripciones-operacion" value={descripcionOperacion} onChange={(e) => setDescripcionOperacion(e.target.value)} required placeholder="Seleccione una descripción existente" style={estiloInput} />
                   <datalist id="lista-descripciones-operacion">
                     {descripcionesExistentes.map((item, index) => (
                       <option key={index} value={item} />
@@ -956,12 +756,7 @@ export default function InventarioPage() {
 
                 <div>
                   <label style={estiloLabel}>Tipo de operación</label>
-                  <select
-                    value={tipoOperacion}
-                    onChange={(e) => setTipoOperacion(e.target.value)}
-                    required
-                    style={estiloInput}
-                  >
+                  <select value={tipoOperacion} onChange={(e) => setTipoOperacion(e.target.value)} required style={estiloInput}>
                     <option value="Entrada">Entrada</option>
                     <option value="Salida">Salida</option>
                   </select>
@@ -969,44 +764,17 @@ export default function InventarioPage() {
 
                 <div>
                   <label style={estiloLabel}>Cantidad</label>
-                  <input
-                    type="number"
-                    value={cantidadOperacion}
-                    onChange={(e) => setCantidadOperacion(e.target.value)}
-                    required
-                    min="1"
-                    placeholder="Ingrese la cantidad"
-                    style={estiloInput}
-                  />
+                  <input type="number" value={cantidadOperacion} onChange={(e) => setCantidadOperacion(e.target.value)} required min="1" placeholder="Ingrese la cantidad" style={estiloInput} />
                 </div>
 
                 <div>
                   <label style={estiloLabel}>Fecha de operación</label>
-                  <input
-                    type="date"
-                    value={fechaOperacion}
-                    onChange={(e) => setFechaOperacion(e.target.value)}
-                    required
-                    style={estiloInput}
-                  />
+                  <input type="date" value={fechaOperacion} onChange={(e) => setFechaOperacion(e.target.value)} required style={estiloInput} />
                 </div>
               </div>
 
               <div style={{ marginTop: '22px' }}>
-                <button
-                  type="submit"
-                  style={{
-                    padding: '12px 22px',
-                    cursor: 'pointer',
-                    backgroundColor: '#0F766E',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: '12px',
-                    fontWeight: 'bold',
-                    fontSize: '14px',
-                    boxShadow: '0 8px 18px rgba(15,118,110,0.18)',
-                  }}
-                >
+                <button type="submit" style={{ padding: '12px 22px', cursor: 'pointer', backgroundColor: '#0F766E', color: '#FFFFFF', border: 'none', borderRadius: '12px', fontWeight: 'bold' }}>
                   Guardar operación
                 </button>
               </div>
@@ -1015,82 +783,168 @@ export default function InventarioPage() {
         )}
 
         {pestanaActiva === 'reportes' && (
-          <div
-            style={{
-              backgroundColor: '#F9FAFB',
-              border: '1px solid #D1D5DB',
-              borderRadius: '24px',
-              padding: '28px',
-              boxShadow: '0 10px 24px rgba(0,0,0,0.05)',
-            }}
-          >
+          <div style={estiloCaja}>
             <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#111827' }}>
-              Reporte de productos
+              Reportes de inventario
             </h2>
 
-            <div
-              style={{
-                overflowX: 'auto',
-                border: '1px solid #E5E7EB',
-                borderRadius: '16px',
-                backgroundColor: '#FFFFFF',
-              }}
-            >
-              <table
-                style={{
-                  width: '100%',
-                  borderCollapse: 'separate',
-                  borderSpacing: 0,
-                }}
-              >
-                <thead>
-                  <tr style={{ backgroundColor: '#F3F4F6' }}>
-                    <th style={{ padding: '14px', textAlign: 'left', color: '#374151', borderBottom: '1px solid #E5E7EB' }}>Descripción</th>
-                    <th style={{ padding: '14px', textAlign: 'left', color: '#374151', borderBottom: '1px solid #E5E7EB' }}>Categoría</th>
-                    <th style={{ padding: '14px', textAlign: 'left', color: '#374151', borderBottom: '1px solid #E5E7EB' }}>Unidad</th>
-                    <th style={{ padding: '14px', textAlign: 'left', color: '#374151', borderBottom: '1px solid #E5E7EB' }}>Precio compra</th>
-                    <th style={{ padding: '14px', textAlign: 'left', color: '#374151', borderBottom: '1px solid #E5E7EB' }}>Precio venta</th>
-                    <th style={{ padding: '14px', textAlign: 'left', color: '#374151', borderBottom: '1px solid #E5E7EB' }}>Stock</th>
-                    <th style={{ padding: '14px', textAlign: 'left', color: '#374151', borderBottom: '1px solid #E5E7EB' }}>Impuesto</th>
-                    <th style={{ padding: '14px', textAlign: 'left', color: '#374151', borderBottom: '1px solid #E5E7EB' }}>Fecha registro</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {productos.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={8}
-                        style={{
-                          padding: '18px',
-                          textAlign: 'center',
-                          color: '#6B7280',
-                          backgroundColor: '#FFFFFF',
-                        }}
-                      >
-                        No hay productos para mostrar.
-                      </td>
-                    </tr>
-                  ) : (
-                    productos.map((p) => (
-                      <tr key={p.id_producto} style={{ backgroundColor: '#FFFFFF' }}>
-                        <td style={{ padding: '14px', borderBottom: '1px solid #F3F4F6' }}>{p.descripcion}</td>
-                        <td style={{ padding: '14px', borderBottom: '1px solid #F3F4F6' }}>{p.categoria}</td>
-                        <td style={{ padding: '14px', borderBottom: '1px solid #F3F4F6' }}>{p.unidad_medida}</td>
-                        <td style={{ padding: '14px', borderBottom: '1px solid #F3F4F6' }}>L {p.precio_compra}</td>
-                        <td style={{ padding: '14px', borderBottom: '1px solid #F3F4F6' }}>L {p.precio_venta}</td>
-                        <td style={{ padding: '14px', borderBottom: '1px solid #F3F4F6' }}>{p.stock_actual}</td>
-                        <td style={{ padding: '14px', borderBottom: '1px solid #F3F4F6' }}>
-                          {Number(p.impuesto) === 0 ? 'Exento (0%)' : 'ISV (15%)'}
-                        </td>
-                        <td style={{ padding: '14px', borderBottom: '1px solid #F3F4F6' }}>
-                          {p.fecha_registro || 'Sin fecha'}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+            <div style={{ marginBottom: '24px', maxWidth: '360px' }}>
+              <label style={estiloLabel}>Seleccione el reporte</label>
+              <select value={tipoReporte} onChange={(e) => setTipoReporte(e.target.value as TipoReporteInventario)} style={estiloInput}>
+                <option value="productos">Reporte General de Productos</option>
+                <option value="movimientos">Reporte Entradas / Salidas</option>
+              </select>
             </div>
+
+            {tipoReporte === 'productos' && (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '18px', marginBottom: '22px' }}>
+                  <div>
+                    <label style={estiloLabel}>Categoría</label>
+                    <select value={filtroCategoriaProducto} onChange={(e) => setFiltroCategoriaProducto(e.target.value)} style={estiloInput}>
+                      <option value="Todas">Todas</option>
+                      {categoriasExistentes.map((cat, index) => (
+                        <option key={index} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={estiloLabel}>Unidad</label>
+                    <select value={filtroUnidadProducto} onChange={(e) => setFiltroUnidadProducto(e.target.value)} style={estiloInput}>
+                      <option value="Todas">Todas</option>
+                      {unidadesExistentes.map((unidad, index) => (
+                        <option key={index} value={unidad}>{unidad}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={estiloLabel}>Rango de stock</label>
+                    <select value={filtroRangoStock} onChange={(e) => setFiltroRangoStock(e.target.value)} style={estiloInput}>
+                      <option value="Todos">Todos</option>
+                      <option value="0">0</option>
+                      <option value="1-100">1 - 100</option>
+                      <option value="101-200">101 - 200</option>
+                      <option value="201-300">201 - 300</option>
+                      <option value="301-400">301 - 400</option>
+                      <option value="401-500">401 - 500</option>
+                      <option value="mayor-500">Mayor a 500</option>
+                    </select>
+                  </div>
+                </div>
+
+                <p style={{ color: '#6B7280', marginBottom: '14px' }}>
+                  Mostrando {productosFiltradosReporte.length} producto(s).
+                </p>
+
+                <div style={estiloTablaContenedor}>
+                  <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#F3F4F6' }}>
+                        <th style={estiloTh}>Descripción</th>
+                        <th style={estiloTh}>Categoría</th>
+                        <th style={estiloTh}>Unidad</th>
+                        <th style={estiloTh}>Precio compra</th>
+                        <th style={estiloTh}>Precio venta</th>
+                        <th style={estiloTh}>Stock</th>
+                        <th style={estiloTh}>Impuesto</th>
+                        <th style={estiloTh}>Fecha registro</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {productosFiltradosReporte.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} style={{ padding: '18px', textAlign: 'center', color: '#6B7280' }}>
+                            No hay productos para mostrar.
+                          </td>
+                        </tr>
+                      ) : (
+                        productosFiltradosReporte.map((p) => (
+                          <tr key={p.id_producto}>
+                            <td style={estiloTd}>{p.descripcion}</td>
+                            <td style={estiloTd}>{p.categoria}</td>
+                            <td style={estiloTd}>{p.unidad_medida}</td>
+                            <td style={estiloTd}>L {p.precio_compra}</td>
+                            <td style={estiloTd}>L {p.precio_venta}</td>
+                            <td style={estiloTd}>{p.stock_actual}</td>
+                            <td style={estiloTd}>{Number(p.impuesto) === 0 ? 'Exento (0%)' : 'ISV (15%)'}</td>
+                            <td style={estiloTd}>{p.fecha_registro || 'Sin fecha'}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+
+            {tipoReporte === 'movimientos' && (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '18px', marginBottom: '22px' }}>
+                  <div>
+                    <label style={estiloLabel}>Fecha desde</label>
+                    <input type="date" value={filtroFechaDesde} onChange={(e) => setFiltroFechaDesde(e.target.value)} style={estiloInput} />
+                  </div>
+
+                  <div>
+                    <label style={estiloLabel}>Fecha hasta</label>
+                    <input type="date" value={filtroFechaHasta} onChange={(e) => setFiltroFechaHasta(e.target.value)} style={estiloInput} />
+                  </div>
+
+                  <div>
+                    <label style={estiloLabel}>Categoría</label>
+                    <select value={filtroCategoriaMovimiento} onChange={(e) => setFiltroCategoriaMovimiento(e.target.value)} style={estiloInput}>
+                      <option value="Todas">Todas</option>
+                      {categoriasExistentes.map((cat, index) => (
+                        <option key={index} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <p style={{ color: '#6B7280', marginBottom: '14px' }}>
+                  Mostrando {movimientosFiltradosReporte.length} movimiento(s).
+                </p>
+
+                <div style={estiloTablaContenedor}>
+                  <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#F3F4F6' }}>
+                        <th style={estiloTh}>Fecha</th>
+                        <th style={estiloTh}>Producto</th>
+                        <th style={estiloTh}>Categoría</th>
+                        <th style={estiloTh}>Tipo</th>
+                        <th style={estiloTh}>Cantidad</th>
+                        <th style={estiloTh}>Stock anterior</th>
+                        <th style={estiloTh}>Stock nuevo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {movimientosFiltradosReporte.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} style={{ padding: '18px', textAlign: 'center', color: '#6B7280' }}>
+                            No hay movimientos para mostrar.
+                          </td>
+                        </tr>
+                      ) : (
+                        movimientosFiltradosReporte.map((m) => (
+                          <tr key={m.id_movimiento}>
+                            <td style={estiloTd}>{m.fecha_registro || 'Sin fecha'}</td>
+                            <td style={estiloTd}>{m.descripcion}</td>
+                            <td style={estiloTd}>{m.categoria || '-'}</td>
+                            <td style={estiloTd}>{m.tipo_operacion}</td>
+                            <td style={estiloTd}>{m.cantidad}</td>
+                            <td style={estiloTd}>{m.stock_anterior}</td>
+                            <td style={estiloTd}>{m.stock_nuevo}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         )}
       </main>

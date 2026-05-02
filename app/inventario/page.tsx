@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import * as XLSX from 'xlsx'
 
 type PestanaActiva = 'registros' | 'operaciones' | 'reportes'
 type VistaProductos = 'kanban' | 'lista'
@@ -501,6 +502,263 @@ export default function InventarioPage() {
     filtroFechaHasta,
   ])
 
+  function formatearImpuesto(impuesto: any) {
+    return Number(impuesto) === 0 ? 'Exento (0%)' : 'ISV (15%)'
+  }
+
+  function formatearFechaGeneracion() {
+    return new Date().toLocaleString('es-HN')
+  }
+
+  function escaparHtml(valor: any) {
+    return String(valor ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;')
+  }
+
+  function exportarProductosExcel() {
+    const datos = productosFiltradosReporte.map((p) => ({
+      Descripción: p.descripcion || '',
+      Categoría: p.categoria || '',
+      Unidad: p.unidad_medida || '',
+      'Precio compra': Number(p.precio_compra || 0),
+      'Precio venta': Number(p.precio_venta || 0),
+      'Stock actual': Number(p.stock_actual || 0),
+      'Stock mínimo': Number(p.stock_minimo ?? 10),
+      Impuesto: formatearImpuesto(p.impuesto),
+      'Fecha registro': p.fecha_registro || '',
+      Alerta: productoTieneStockBajo(p) ? 'Stock bajo' : '',
+    }))
+
+    const hoja = XLSX.utils.json_to_sheet(datos)
+    const libro = XLSX.utils.book_new()
+
+    XLSX.utils.book_append_sheet(libro, hoja, 'Productos')
+    XLSX.writeFile(libro, 'reporte_general_productos.xlsx')
+  }
+
+  function exportarMovimientosExcel() {
+    const datos = movimientosFiltradosReporte.map((m) => ({
+      Fecha: m.fecha_registro || '',
+      Producto: m.descripcion || '',
+      Categoría: obtenerCategoriaMovimiento(m),
+      Tipo: m.tipo_operacion || '',
+      Cantidad: Number(m.cantidad || 0),
+      'Stock anterior': Number(m.stock_anterior || 0),
+      'Stock nuevo': Number(m.stock_nuevo || 0),
+    }))
+
+    const hoja = XLSX.utils.json_to_sheet(datos)
+    const libro = XLSX.utils.book_new()
+
+    XLSX.utils.book_append_sheet(libro, hoja, 'Entradas y Salidas')
+    XLSX.writeFile(libro, 'reporte_entradas_salidas.xlsx')
+  }
+
+  function imprimirReporte(titulo: string, encabezados: string[], filas: any[][], resumen: string) {
+    const ventana = window.open('', '_blank')
+
+    if (!ventana) {
+      alert('No se pudo abrir la ventana de impresión. Revise si el navegador bloqueó ventanas emergentes.')
+      return
+    }
+
+    const filasHtml = filas
+      .map((fila) => {
+        const celdas = fila
+          .map((celda) => `<td>${escaparHtml(celda)}</td>`)
+          .join('')
+
+        return `<tr>${celdas}</tr>`
+      })
+      .join('')
+
+    const encabezadosHtml = encabezados
+      .map((encabezado) => `<th>${escaparHtml(encabezado)}</th>`)
+      .join('')
+
+    ventana.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>${escaparHtml(titulo)}</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              margin: 28px;
+              color: #111827;
+            }
+
+            .encabezado {
+              border-bottom: 2px solid #111827;
+              padding-bottom: 12px;
+              margin-bottom: 18px;
+            }
+
+            h1 {
+              margin: 0;
+              font-size: 22px;
+            }
+
+            h2 {
+              margin: 6px 0 0 0;
+              font-size: 16px;
+              color: #374151;
+              font-weight: normal;
+            }
+
+            .meta {
+              margin-top: 10px;
+              font-size: 12px;
+              color: #4B5563;
+              line-height: 1.5;
+            }
+
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 11px;
+            }
+
+            th {
+              background: #F3F4F6;
+              color: #111827;
+              text-align: left;
+              padding: 8px;
+              border: 1px solid #D1D5DB;
+            }
+
+            td {
+              padding: 7px;
+              border: 1px solid #E5E7EB;
+              vertical-align: top;
+            }
+
+            tr:nth-child(even) td {
+              background: #FAFAFA;
+            }
+
+            .pie {
+              margin-top: 18px;
+              font-size: 11px;
+              color: #6B7280;
+            }
+
+            @media print {
+              body {
+                margin: 18mm;
+              }
+
+              button {
+                display: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="encabezado">
+            <h1>Ferretería PROIS</h1>
+            <h2>${escaparHtml(titulo)}</h2>
+            <div class="meta">
+              Fecha de generación: ${escaparHtml(formatearFechaGeneracion())}<br />
+              ${escaparHtml(resumen)}
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>${encabezadosHtml}</tr>
+            </thead>
+            <tbody>
+              ${filasHtml || `<tr><td colspan="${encabezados.length}">No hay datos para mostrar.</td></tr>`}
+            </tbody>
+          </table>
+
+          <div class="pie">
+            Reporte generado desde el Mini ERP Ferretería.
+          </div>
+
+          <script>
+            window.onload = function () {
+              window.print()
+            }
+          </script>
+        </body>
+      </html>
+    `)
+
+    ventana.document.close()
+  }
+
+  function imprimirProductosPdf() {
+    const encabezados = [
+      'Descripción',
+      'Categoría',
+      'Unidad',
+      'Precio compra',
+      'Precio venta',
+      'Stock',
+      'Stock mínimo',
+      'Impuesto',
+      'Fecha registro',
+      'Alerta',
+    ]
+
+    const filas = productosFiltradosReporte.map((p) => [
+      p.descripcion || '',
+      p.categoria || '',
+      p.unidad_medida || '',
+      `L ${p.precio_compra ?? 0}`,
+      `L ${p.precio_venta ?? 0}`,
+      p.stock_actual ?? 0,
+      p.stock_minimo ?? 10,
+      formatearImpuesto(p.impuesto),
+      p.fecha_registro || '',
+      productoTieneStockBajo(p) ? 'Stock bajo' : '',
+    ])
+
+    imprimirReporte(
+      'Reporte General de Productos',
+      encabezados,
+      filas,
+      `Total de productos mostrados: ${productosFiltradosReporte.length}`
+    )
+  }
+
+  function imprimirMovimientosPdf() {
+    const encabezados = [
+      'Fecha',
+      'Producto',
+      'Categoría',
+      'Tipo',
+      'Cantidad',
+      'Stock anterior',
+      'Stock nuevo',
+    ]
+
+    const filas = movimientosFiltradosReporte.map((m) => [
+      m.fecha_registro || '',
+      m.descripcion || '',
+      obtenerCategoriaMovimiento(m),
+      m.tipo_operacion || '',
+      m.cantidad ?? 0,
+      m.stock_anterior ?? 0,
+      m.stock_nuevo ?? 0,
+    ])
+
+    imprimirReporte(
+      'Reporte Entradas / Salidas',
+      encabezados,
+      filas,
+      `Total de movimientos mostrados: ${movimientosFiltradosReporte.length}`
+    )
+  }
+
+
   function estiloPestana(activa: boolean) {
     return {
       padding: '11px 18px',
@@ -930,12 +1188,65 @@ export default function InventarioPage() {
           <div style={estiloCaja}>
             <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#111827' }}>Reportes de inventario</h2>
 
-            <div style={{ marginBottom: '24px', maxWidth: '360px' }}>
-              <label style={estiloLabel}>Seleccione el reporte</label>
-              <select value={tipoReporte} onChange={(e) => setTipoReporte(e.target.value as TipoReporteInventario)} style={estiloInput}>
-                <option value="productos">Reporte General de Productos</option>
-                <option value="movimientos">Reporte Entradas / Salidas</option>
-              </select>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'end',
+                gap: '20px',
+                marginBottom: '24px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div style={{ maxWidth: '360px', width: '100%' }}>
+                <label style={estiloLabel}>Seleccione el reporte</label>
+                <select value={tipoReporte} onChange={(e) => setTipoReporte(e.target.value as TipoReporteInventario)} style={estiloInput}>
+                  <option value="productos">Reporte General de Productos</option>
+                  <option value="movimientos">Reporte Entradas / Salidas</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    tipoReporte === 'productos'
+                      ? exportarProductosExcel()
+                      : exportarMovimientosExcel()
+                  }
+                  style={{
+                    padding: '12px 18px',
+                    backgroundColor: '#0F766E',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '10px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Exportar Excel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    tipoReporte === 'productos'
+                      ? imprimirProductosPdf()
+                      : imprimirMovimientosPdf()
+                  }
+                  style={{
+                    padding: '12px 18px',
+                    backgroundColor: '#374151',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '10px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Imprimir / PDF
+                </button>
+              </div>
             </div>
 
             {tipoReporte === 'productos' && (

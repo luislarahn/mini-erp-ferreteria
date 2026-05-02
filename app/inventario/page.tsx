@@ -29,8 +29,13 @@ export default function InventarioPage() {
   const [precioCompra, setPrecioCompra] = useState('')
   const [precioVenta, setPrecioVenta] = useState('')
   const [stockActual, setStockActual] = useState('')
+  const [stockMinimo, setStockMinimo] = useState('10')
   const [tipoImpuesto, setTipoImpuesto] = useState('ISV')
   const [fechaRegistro, setFechaRegistro] = useState('')
+
+  const [idProductoEditando, setIdProductoEditando] = useState<number | null>(null)
+  const [busquedaProducto, setBusquedaProducto] = useState('')
+  const [menuAccionAbierto, setMenuAccionAbierto] = useState<number | null>(null)
 
   const [descripcionOperacion, setDescripcionOperacion] = useState('')
   const [tipoOperacion, setTipoOperacion] = useState('Entrada')
@@ -41,10 +46,12 @@ export default function InventarioPage() {
   const [filtroCategoriaProducto, setFiltroCategoriaProducto] = useState('Todas')
   const [filtroUnidadProducto, setFiltroUnidadProducto] = useState('Todas')
   const [filtroRangoStock, setFiltroRangoStock] = useState('Todos')
+  const [mostrarSoloAlertas, setMostrarSoloAlertas] = useState(false)
 
   const [filtroFechaDesde, setFiltroFechaDesde] = useState('')
   const [filtroFechaHasta, setFiltroFechaHasta] = useState('')
   const [filtroCategoriaMovimiento, setFiltroCategoriaMovimiento] = useState('Todas')
+  const [filtroTipoMovimiento, setFiltroTipoMovimiento] = useState('Todos')
 
   useEffect(() => {
     const auth = localStorage.getItem('miniERPAuth')
@@ -75,7 +82,7 @@ export default function InventarioPage() {
   }, [])
 
   useEffect(() => {
-    if (!descripcion.trim()) return
+    if (!descripcion.trim() || idProductoEditando !== null) return
 
     const productoCoincidente = productos.find(
       (p) =>
@@ -86,12 +93,13 @@ export default function InventarioPage() {
     if (productoCoincidente) {
       setCategoria(productoCoincidente.categoria || '')
       setUnidadMedida(productoCoincidente.unidad_medida || '')
+      setStockMinimo(String(productoCoincidente.stock_minimo ?? 10))
       setTipoImpuesto(Number(productoCoincidente.impuesto) === 0 ? 'Exento' : 'ISV')
       setFechaRegistro(
         productoCoincidente.fecha_registro || new Date().toISOString().split('T')[0]
       )
     }
-  }, [descripcion, productos])
+  }, [descripcion, productos, idProductoEditando])
 
   async function obtenerProductos() {
     const { data, error } = await supabase
@@ -144,6 +152,35 @@ export default function InventarioPage() {
     const categoriaLimpia = categoria.trim()
     const unidadMedidaLimpia = unidadMedida.trim()
     const impuestoValor = tipoImpuesto === 'Exento' ? 0 : 15
+    const stockMinimoValor = Number(stockMinimo || 10)
+
+    if (idProductoEditando !== null) {
+      const { error } = await supabase
+        .from('productos')
+        .update({
+          descripcion: descripcionLimpia,
+          categoria: categoriaLimpia,
+          unidad_medida: unidadMedidaLimpia,
+          precio_compra: Number(precioCompra),
+          precio_venta: Number(precioVenta),
+          stock_actual: Number(stockActual),
+          stock_minimo: stockMinimoValor,
+          impuesto: impuestoValor,
+          fecha_registro: fechaRegistro,
+        })
+        .eq('id_producto', idProductoEditando)
+
+      if (error) {
+        console.log('Error al actualizar producto:', error)
+        alert('Ocurrió un error al actualizar el producto')
+      } else {
+        alert('Producto actualizado correctamente')
+        limpiarFormulario()
+        obtenerProductos()
+      }
+
+      return
+    }
 
     const productoExistente = productos.find(
       (p) =>
@@ -152,6 +189,12 @@ export default function InventarioPage() {
     )
 
     if (productoExistente) {
+      const confirmar = confirm(
+        'Ya existe un producto con esta descripción. ¿Desea actualizar ese registro?'
+      )
+
+      if (!confirmar) return
+
       const { error } = await supabase
         .from('productos')
         .update({
@@ -160,6 +203,7 @@ export default function InventarioPage() {
           precio_compra: Number(precioCompra),
           precio_venta: Number(precioVenta),
           stock_actual: Number(stockActual),
+          stock_minimo: stockMinimoValor,
           impuesto: impuestoValor,
           fecha_registro: fechaRegistro,
         })
@@ -182,6 +226,7 @@ export default function InventarioPage() {
           precio_compra: Number(precioCompra),
           precio_venta: Number(precioVenta),
           stock_actual: Number(stockActual),
+          stock_minimo: stockMinimoValor,
           impuesto: impuestoValor,
           fecha_registro: fechaRegistro,
         },
@@ -287,8 +332,10 @@ export default function InventarioPage() {
     setPrecioCompra('')
     setPrecioVenta('')
     setStockActual('')
+    setStockMinimo('10')
     setTipoImpuesto('ISV')
     setFechaRegistro(hoy)
+    setIdProductoEditando(null)
   }
 
   function limpiarFormularioOperacion() {
@@ -299,8 +346,27 @@ export default function InventarioPage() {
     setFechaOperacion(hoy)
   }
 
+  function editarProducto(producto: any) {
+    setIdProductoEditando(producto.id_producto)
+    setDescripcion(producto.descripcion || '')
+    setCategoria(producto.categoria || '')
+    setUnidadMedida(producto.unidad_medida || '')
+    setPrecioCompra(String(producto.precio_compra ?? ''))
+    setPrecioVenta(String(producto.precio_venta ?? ''))
+    setStockActual(String(producto.stock_actual ?? ''))
+    setStockMinimo(String(producto.stock_minimo ?? 10))
+    setTipoImpuesto(Number(producto.impuesto) === 0 ? 'Exento' : 'ISV')
+    setFechaRegistro(producto.fecha_registro || new Date().toISOString().split('T')[0])
+    setMenuAccionAbierto(null)
+
+    window.scrollTo({
+      top: 120,
+      behavior: 'smooth',
+    })
+  }
+
   async function eliminarProducto(id: number) {
-    const confirmar = confirm('¿Desea eliminar este producto?')
+    const confirmar = confirm('¿Está seguro de eliminar este producto? Esta acción no se puede deshacer.')
 
     if (!confirmar) return
 
@@ -314,6 +380,7 @@ export default function InventarioPage() {
       alert('Ocurrió un error al eliminar el producto')
     } else {
       alert('Producto eliminado correctamente')
+      setMenuAccionAbierto(null)
       obtenerProductos()
     }
   }
@@ -322,6 +389,59 @@ export default function InventarioPage() {
     localStorage.removeItem('miniERPAuth')
     router.push('/')
   }
+
+  function productoTieneStockBajo(producto: any) {
+    return Number(producto.stock_actual || 0) <= Number(producto.stock_minimo ?? 10)
+  }
+
+  function obtenerProductoPorMovimiento(movimiento: any) {
+    return productos.find(
+      (p) =>
+        Number(p.id_producto) === Number(movimiento.id_producto) ||
+        p.descripcion?.trim().toLowerCase() === movimiento.descripcion?.trim().toLowerCase()
+    )
+  }
+
+  function obtenerCategoriaMovimiento(movimiento: any) {
+    if (movimiento.categoria && movimiento.categoria.trim() !== '') {
+      return movimiento.categoria
+    }
+
+    const productoRelacionado = obtenerProductoPorMovimiento(movimiento)
+    return productoRelacionado?.categoria || '-'
+  }
+
+  function obtenerTipoMovimientoBase(movimiento: any) {
+    const tipo = movimiento.tipo_operacion || ''
+
+    if (tipo.toLowerCase().includes('factura')) {
+      return 'Venta'
+    }
+
+    if (tipo.toLowerCase().includes('salida')) {
+      return 'Salida'
+    }
+
+    if (tipo.toLowerCase().includes('entrada')) {
+      return 'Entrada'
+    }
+
+    return tipo
+  }
+
+  const productosFiltradosListado = useMemo(() => {
+    const texto = busquedaProducto.trim().toLowerCase()
+
+    if (!texto) return productos
+
+    return productos.filter((p) => {
+      return (
+        p.descripcion?.toLowerCase().includes(texto) ||
+        p.categoria?.toLowerCase().includes(texto) ||
+        p.unidad_medida?.toLowerCase().includes(texto)
+      )
+    })
+  }, [productos, busquedaProducto])
 
   const productosFiltradosReporte = useMemo(() => {
     return productos.filter((p) => {
@@ -332,37 +452,54 @@ export default function InventarioPage() {
         filtroUnidadProducto === 'Todas' || p.unidad_medida === filtroUnidadProducto
 
       const stock = Number(p.stock_actual || 0)
-
       let cumpleStock = true
 
       if (filtroRangoStock === '0') cumpleStock = stock === 0
-if (filtroRangoStock === '1-100') cumpleStock = stock >= 1 && stock <= 100
-if (filtroRangoStock === '101-200') cumpleStock = stock >= 101 && stock <= 200
-if (filtroRangoStock === '201-300') cumpleStock = stock >= 201 && stock <= 300
-if (filtroRangoStock === '301-400') cumpleStock = stock >= 301 && stock <= 400
-if (filtroRangoStock === '401-500') cumpleStock = stock >= 401 && stock <= 500
-if (filtroRangoStock === 'mayor-500') cumpleStock = stock > 500
+      if (filtroRangoStock === '1-100') cumpleStock = stock >= 1 && stock <= 100
+      if (filtroRangoStock === '101-200') cumpleStock = stock >= 101 && stock <= 200
+      if (filtroRangoStock === '201-300') cumpleStock = stock >= 201 && stock <= 300
+      if (filtroRangoStock === '301-400') cumpleStock = stock >= 301 && stock <= 400
+      if (filtroRangoStock === '401-500') cumpleStock = stock >= 401 && stock <= 500
+      if (filtroRangoStock === 'mayor-500') cumpleStock = stock > 500
 
-      return cumpleCategoria && cumpleUnidad && cumpleStock
+      const cumpleAlerta = !mostrarSoloAlertas || productoTieneStockBajo(p)
+
+      return cumpleCategoria && cumpleUnidad && cumpleStock && cumpleAlerta
     })
-  }, [productos, filtroCategoriaProducto, filtroUnidadProducto, filtroRangoStock])
+  }, [
+    productos,
+    filtroCategoriaProducto,
+    filtroUnidadProducto,
+    filtroRangoStock,
+    mostrarSoloAlertas,
+  ])
 
   const movimientosFiltradosReporte = useMemo(() => {
     return movimientos.filter((m) => {
+      const categoriaMovimiento = obtenerCategoriaMovimiento(m)
+      const tipoMovimientoBase = obtenerTipoMovimientoBase(m)
+
       const cumpleCategoria =
-        filtroCategoriaMovimiento === 'Todas' || m.categoria === filtroCategoriaMovimiento
+        filtroCategoriaMovimiento === 'Todas' || categoriaMovimiento === filtroCategoriaMovimiento
+
+      const cumpleTipo =
+        filtroTipoMovimiento === 'Todos' ||
+        tipoMovimientoBase === filtroTipoMovimiento
 
       const fecha = m.fecha_registro || ''
+      const cumpleFechaDesde = !filtroFechaDesde || fecha >= filtroFechaDesde
+      const cumpleFechaHasta = !filtroFechaHasta || fecha <= filtroFechaHasta
 
-      const cumpleFechaDesde =
-        !filtroFechaDesde || fecha >= filtroFechaDesde
-
-      const cumpleFechaHasta =
-        !filtroFechaHasta || fecha <= filtroFechaHasta
-
-      return cumpleCategoria && cumpleFechaDesde && cumpleFechaHasta
+      return cumpleCategoria && cumpleTipo && cumpleFechaDesde && cumpleFechaHasta
     })
-  }, [movimientos, filtroCategoriaMovimiento, filtroFechaDesde, filtroFechaHasta])
+  }, [
+    movimientos,
+    productos,
+    filtroCategoriaMovimiento,
+    filtroTipoMovimiento,
+    filtroFechaDesde,
+    filtroFechaHasta,
+  ])
 
   function estiloPestana(activa: boolean) {
     return {
@@ -442,32 +579,9 @@ if (filtroRangoStock === 'mayor-500') cumpleStock = stock > 500
   }
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        backgroundColor: '#F3F4F6',
-        fontFamily: 'Arial, sans-serif',
-        color: '#1F2937',
-      }}
-    >
-      <header
-        style={{
-          backgroundColor: '#FFFFFF',
-          borderBottom: '1px solid #E5E7EB',
-          padding: '20px 32px',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.04)',
-        }}
-      >
-        <div
-          style={{
-            maxWidth: '1280px',
-            margin: '0 auto',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: '20px',
-          }}
-        >
+    <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', fontFamily: 'Arial, sans-serif', color: '#1F2937' }}>
+      <header style={{ backgroundColor: '#FFFFFF', borderBottom: '1px solid #E5E7EB', padding: '20px 32px', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}>
+        <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
           <div>
             <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 'bold', color: '#0F172A' }}>
               Ferretería PROIS
@@ -495,20 +609,7 @@ if (filtroRangoStock === 'mayor-500') cumpleStock = stock > 500
                 gap: '10px',
               }}
             >
-              <span
-                style={{
-                  width: '34px',
-                  height: '34px',
-                  borderRadius: '50%',
-                  backgroundColor: '#0F766E',
-                  color: '#FFFFFF',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                }}
-              >
+              <span style={{ width: '34px', height: '34px', borderRadius: '50%', backgroundColor: '#0F766E', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold' }}>
                 A
               </span>
               Admin
@@ -516,20 +617,7 @@ if (filtroRangoStock === 'mayor-500') cumpleStock = stock > 500
             </button>
 
             {menuAbierto && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '58px',
-                  right: 0,
-                  width: '220px',
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid #E5E7EB',
-                  borderRadius: '16px',
-                  boxShadow: '0 18px 35px rgba(0,0,0,0.10)',
-                  overflow: 'hidden',
-                  zIndex: 1000,
-                }}
-              >
+              <div style={{ position: 'absolute', top: '58px', right: 0, width: '220px', backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '16px', boxShadow: '0 18px 35px rgba(0,0,0,0.10)', overflow: 'hidden', zIndex: 1000 }}>
                 <Link href="/documentacion" style={{ display: 'block', padding: '13px 16px', textDecoration: 'none', color: '#374151' }}>
                   Documentación
                 </Link>
@@ -539,19 +627,7 @@ if (filtroRangoStock === 'mayor-500') cumpleStock = stock > 500
                 <Link href="/preferencias" style={{ display: 'block', padding: '13px 16px', textDecoration: 'none', color: '#374151' }}>
                   Preferencias
                 </Link>
-                <button
-                  onClick={cerrarSesion}
-                  style={{
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '13px 16px',
-                    backgroundColor: '#FFFFFF',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: '#B91C1C',
-                    fontWeight: 'bold',
-                  }}
-                >
+                <button onClick={cerrarSesion} style={{ width: '100%', textAlign: 'left', padding: '13px 16px', backgroundColor: '#FFFFFF', border: 'none', cursor: 'pointer', color: '#B91C1C', fontWeight: 'bold' }}>
                   Cerrar sesión
                 </button>
               </div>
@@ -561,43 +637,28 @@ if (filtroRangoStock === 'mayor-500') cumpleStock = stock > 500
       </header>
 
       <main style={{ maxWidth: '1280px', margin: '0 auto', padding: '32px' }}>
-        <a
-          href="/dashboard"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            marginBottom: '20px',
-            color: '#374151',
-            textDecoration: 'none',
-            fontWeight: 'bold',
-            backgroundColor: '#FFFFFF',
-            padding: '12px 16px',
-            borderRadius: '12px',
-            border: '1px solid #E5E7EB',
-          }}
-        >
+        <a href="/dashboard" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '20px', color: '#374151', textDecoration: 'none', fontWeight: 'bold', backgroundColor: '#FFFFFF', padding: '12px 16px', borderRadius: '12px', border: '1px solid #E5E7EB' }}>
           ← Volver al dashboard
         </a>
 
         <div style={{ marginBottom: '22px' }}>
-          <button type="button" onClick={() => setPestanaActiva('registros')} style={estiloPestana(pestanaActiva === 'registros')}>
-            Registros
-          </button>
-          <button type="button" onClick={() => setPestanaActiva('operaciones')} style={estiloPestana(pestanaActiva === 'operaciones')}>
-            Operaciones
-          </button>
-          <button type="button" onClick={() => setPestanaActiva('reportes')} style={estiloPestana(pestanaActiva === 'reportes')}>
-            Reportes
-          </button>
+          <button type="button" onClick={() => setPestanaActiva('registros')} style={estiloPestana(pestanaActiva === 'registros')}>Registros</button>
+          <button type="button" onClick={() => setPestanaActiva('operaciones')} style={estiloPestana(pestanaActiva === 'operaciones')}>Operaciones</button>
+          <button type="button" onClick={() => setPestanaActiva('reportes')} style={estiloPestana(pestanaActiva === 'reportes')}>Reportes</button>
         </div>
 
         {pestanaActiva === 'registros' && (
           <>
             <div style={{ ...estiloCaja, marginBottom: '24px' }}>
               <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#111827' }}>
-                Registro de productos
+                {idProductoEditando ? 'Editar producto' : 'Registro de productos'}
               </h2>
+
+              {idProductoEditando && (
+                <div style={{ marginBottom: '18px', padding: '12px 14px', borderRadius: '12px', backgroundColor: '#FEF3C7', color: '#92400E', fontWeight: 'bold' }}>
+                  Está editando un producto existente. Revise los campos y presione “Actualizar producto”.
+                </div>
+              )}
 
               <form onSubmit={guardarProducto}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '18px' }}>
@@ -642,6 +703,11 @@ if (filtroRangoStock === 'mayor-500') cumpleStock = stock > 500
                   </div>
 
                   <div>
+                    <label style={estiloLabel}>Stock mínimo</label>
+                    <input type="number" value={stockMinimo} onChange={(e) => setStockMinimo(e.target.value)} required min="0" style={estiloInput} />
+                  </div>
+
+                  <div>
                     <label style={estiloLabel}>Impuesto</label>
                     <select value={tipoImpuesto} onChange={(e) => setTipoImpuesto(e.target.value)} required style={estiloInput}>
                       <option value="ISV">ISV (15%)</option>
@@ -655,16 +721,22 @@ if (filtroRangoStock === 'mayor-500') cumpleStock = stock > 500
                   </div>
                 </div>
 
-                <div style={{ marginTop: '22px' }}>
+                <div style={{ marginTop: '22px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                   <button type="submit" style={{ padding: '12px 22px', cursor: 'pointer', backgroundColor: '#0F766E', color: '#FFFFFF', border: 'none', borderRadius: '12px', fontWeight: 'bold' }}>
-                    Guardar producto
+                    {idProductoEditando ? 'Actualizar producto' : 'Guardar producto'}
                   </button>
+
+                  {idProductoEditando && (
+                    <button type="button" onClick={limpiarFormulario} style={{ padding: '12px 22px', cursor: 'pointer', backgroundColor: '#FFFFFF', color: '#374151', border: '1px solid #D1D5DB', borderRadius: '12px', fontWeight: 'bold' }}>
+                      Cancelar edición
+                    </button>
+                  )}
                 </div>
               </form>
             </div>
 
             <div style={estiloCaja}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '14px', flexWrap: 'wrap' }}>
                 <h2 style={{ margin: 0, color: '#111827' }}>Listado de productos</h2>
                 <div>
                   <button type="button" onClick={() => setVistaProductos('kanban')} style={estiloVista(vistaProductos === 'kanban')}>Kanban</button>
@@ -672,27 +744,73 @@ if (filtroRangoStock === 'mayor-500') cumpleStock = stock > 500
                 </div>
               </div>
 
-              {productos.length === 0 ? (
+              <div style={{ marginBottom: '20px' }}>
+                <label style={estiloLabel}>Buscar producto</label>
+                <input
+                  type="text"
+                  value={busquedaProducto}
+                  onChange={(e) => setBusquedaProducto(e.target.value)}
+                  placeholder="Buscar por descripción, categoría o unidad"
+                  style={estiloInput}
+                />
+              </div>
+
+              <p style={{ color: '#6B7280', marginTop: 0 }}>
+                Mostrando {productosFiltradosListado.length} producto(s).
+              </p>
+
+              {productosFiltradosListado.length === 0 ? (
                 <p style={{ color: '#6B7280' }}>No hay productos para mostrar.</p>
               ) : vistaProductos === 'kanban' ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '18px' }}>
-                  {productos.map((p) => (
-                    <div key={p.id_producto} style={{ backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', padding: '20px', borderRadius: '20px' }}>
-                      <strong>{p.descripcion}</strong>
-                      <div style={{ color: '#4B5563', lineHeight: 1.8, fontSize: '14px', marginTop: '12px' }}>
-                        <div><strong>Categoría:</strong> {p.categoria}</div>
-                        <div><strong>Unidad:</strong> {p.unidad_medida}</div>
-                        <div><strong>Precio compra:</strong> L {p.precio_compra}</div>
-                        <div><strong>Precio venta:</strong> L {p.precio_venta}</div>
-                        <div><strong>Stock actual:</strong> {p.stock_actual}</div>
-                        <div><strong>Impuesto:</strong> {Number(p.impuesto) === 0 ? 'Exento (0%)' : 'ISV (15%)'}</div>
-                        <div><strong>Fecha registro:</strong> {p.fecha_registro || 'Sin fecha'}</div>
+                  {productosFiltradosListado.map((p) => {
+                    const esStockBajo = productoTieneStockBajo(p)
+                    const stockMinimoValor = Number(p.stock_minimo ?? 10)
+
+                    return (
+                      <div key={p.id_producto} style={{ backgroundColor: esStockBajo ? '#FEF2F2' : '#FFFFFF', border: esStockBajo ? '1px solid #FCA5A5' : '1px solid #E5E7EB', padding: '20px', borderRadius: '20px' }}>
+                        <strong>{p.descripcion}</strong>
+
+                        {esStockBajo && (
+                          <div style={{ marginTop: '10px', padding: '8px 10px', borderRadius: '10px', backgroundColor: '#FEE2E2', color: '#B91C1C', fontWeight: 'bold', fontSize: '13px' }}>
+                            ⚠ Stock bajo | Mínimo: {stockMinimoValor}
+                          </div>
+                        )}
+
+                        <div style={{ color: '#4B5563', lineHeight: 1.8, fontSize: '14px', marginTop: '12px' }}>
+                          <div><strong>Categoría:</strong> {p.categoria}</div>
+                          <div><strong>Unidad:</strong> {p.unidad_medida}</div>
+                          <div><strong>Precio compra:</strong> L {p.precio_compra}</div>
+                          <div><strong>Precio venta:</strong> L {p.precio_venta}</div>
+                          <div><strong>Stock actual:</strong> {p.stock_actual}</div>
+                          <div><strong>Stock mínimo:</strong> {stockMinimoValor}</div>
+                          <div><strong>Impuesto:</strong> {Number(p.impuesto) === 0 ? 'Exento (0%)' : 'ISV (15%)'}</div>
+                          <div><strong>Fecha registro:</strong> {p.fecha_registro || 'Sin fecha'}</div>
+                        </div>
+
+                        <div style={{ marginTop: '16px', position: 'relative' }}>
+                          <button
+                            type="button"
+                            onClick={() => setMenuAccionAbierto(menuAccionAbierto === p.id_producto ? null : p.id_producto)}
+                            style={{ padding: '10px 16px', cursor: 'pointer', backgroundColor: '#FFFFFF', color: '#374151', border: '1px solid #D1D5DB', borderRadius: '12px', fontWeight: 'bold' }}
+                          >
+                            Acciones ▾
+                          </button>
+
+                          {menuAccionAbierto === p.id_producto && (
+                            <div style={{ position: 'absolute', top: '44px', left: 0, width: '150px', backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: '0 10px 24px rgba(0,0,0,0.10)', zIndex: 20, overflow: 'hidden' }}>
+                              <button type="button" onClick={() => editarProducto(p)} style={{ width: '100%', padding: '11px 14px', textAlign: 'left', backgroundColor: '#FFFFFF', border: 'none', cursor: 'pointer', color: '#374151', fontWeight: 'bold' }}>
+                                Editar
+                              </button>
+                              <button type="button" onClick={() => eliminarProducto(p.id_producto)} style={{ width: '100%', padding: '11px 14px', textAlign: 'left', backgroundColor: '#FFFFFF', border: 'none', cursor: 'pointer', color: '#B91C1C', fontWeight: 'bold' }}>
+                                Eliminar
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <button onClick={() => eliminarProducto(p.id_producto)} style={{ marginTop: '16px', padding: '10px 16px', cursor: 'pointer', backgroundColor: '#FEE2E2', color: '#B91C1C', border: '1px solid #FECACA', borderRadius: '12px', fontWeight: 'bold' }}>
-                        Eliminar
-                      </button>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 <div style={estiloTablaContenedor}>
@@ -705,29 +823,57 @@ if (filtroRangoStock === 'mayor-500') cumpleStock = stock > 500
                         <th style={estiloTh}>Precio compra</th>
                         <th style={estiloTh}>Precio venta</th>
                         <th style={estiloTh}>Stock</th>
+                        <th style={estiloTh}>Stock mínimo</th>
                         <th style={estiloTh}>Impuesto</th>
                         <th style={estiloTh}>Fecha registro</th>
                         <th style={estiloTh}>Acción</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {productos.map((p) => (
-                        <tr key={p.id_producto}>
-                          <td style={estiloTd}>{p.descripcion}</td>
-                          <td style={estiloTd}>{p.categoria}</td>
-                          <td style={estiloTd}>{p.unidad_medida}</td>
-                          <td style={estiloTd}>L {p.precio_compra}</td>
-                          <td style={estiloTd}>L {p.precio_venta}</td>
-                          <td style={estiloTd}>{p.stock_actual}</td>
-                          <td style={estiloTd}>{Number(p.impuesto) === 0 ? 'Exento (0%)' : 'ISV (15%)'}</td>
-                          <td style={estiloTd}>{p.fecha_registro || 'Sin fecha'}</td>
-                          <td style={estiloTd}>
-                            <button onClick={() => eliminarProducto(p.id_producto)} style={{ padding: '8px 12px', cursor: 'pointer', backgroundColor: '#FEE2E2', color: '#B91C1C', border: '1px solid #FECACA', borderRadius: '10px', fontWeight: 'bold' }}>
-                              Eliminar
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {productosFiltradosListado.map((p) => {
+                        const esStockBajo = productoTieneStockBajo(p)
+
+                        return (
+                          <tr key={p.id_producto} style={{ backgroundColor: esStockBajo ? '#FEF2F2' : '#FFFFFF' }}>
+                            <td style={estiloTd}>{p.descripcion}</td>
+                            <td style={estiloTd}>{p.categoria}</td>
+                            <td style={estiloTd}>{p.unidad_medida}</td>
+                            <td style={estiloTd}>L {p.precio_compra}</td>
+                            <td style={estiloTd}>L {p.precio_venta}</td>
+                            <td style={estiloTd}>
+                              {p.stock_actual}
+                              {esStockBajo && (
+                                <span style={{ color: '#B91C1C', fontWeight: 'bold', marginLeft: '8px' }}>
+                                  ⚠ Bajo
+                                </span>
+                              )}
+                            </td>
+                            <td style={estiloTd}>{Number(p.stock_minimo ?? 10)}</td>
+                            <td style={estiloTd}>{Number(p.impuesto) === 0 ? 'Exento (0%)' : 'ISV (15%)'}</td>
+                            <td style={estiloTd}>{p.fecha_registro || 'Sin fecha'}</td>
+                            <td style={{ ...estiloTd, position: 'relative' }}>
+                              <button
+                                type="button"
+                                onClick={() => setMenuAccionAbierto(menuAccionAbierto === p.id_producto ? null : p.id_producto)}
+                                style={{ padding: '8px 12px', cursor: 'pointer', backgroundColor: '#FFFFFF', color: '#374151', border: '1px solid #D1D5DB', borderRadius: '10px', fontWeight: 'bold' }}
+                              >
+                                Acciones ▾
+                              </button>
+
+                              {menuAccionAbierto === p.id_producto && (
+                                <div style={{ position: 'absolute', top: '48px', right: '14px', width: '150px', backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: '0 10px 24px rgba(0,0,0,0.10)', zIndex: 20, overflow: 'hidden' }}>
+                                  <button type="button" onClick={() => editarProducto(p)} style={{ width: '100%', padding: '11px 14px', textAlign: 'left', backgroundColor: '#FFFFFF', border: 'none', cursor: 'pointer', color: '#374151', fontWeight: 'bold' }}>
+                                    Editar
+                                  </button>
+                                  <button type="button" onClick={() => eliminarProducto(p.id_producto)} style={{ width: '100%', padding: '11px 14px', textAlign: 'left', backgroundColor: '#FFFFFF', border: 'none', cursor: 'pointer', color: '#B91C1C', fontWeight: 'bold' }}>
+                                    Eliminar
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -738,9 +884,7 @@ if (filtroRangoStock === 'mayor-500') cumpleStock = stock > 500
 
         {pestanaActiva === 'operaciones' && (
           <div style={estiloCaja}>
-            <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#111827' }}>
-              Operaciones de stock
-            </h2>
+            <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#111827' }}>Operaciones de stock</h2>
 
             <form onSubmit={guardarOperacionStock}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '18px' }}>
@@ -784,9 +928,7 @@ if (filtroRangoStock === 'mayor-500') cumpleStock = stock > 500
 
         {pestanaActiva === 'reportes' && (
           <div style={estiloCaja}>
-            <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#111827' }}>
-              Reportes de inventario
-            </h2>
+            <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#111827' }}>Reportes de inventario</h2>
 
             <div style={{ marginBottom: '24px', maxWidth: '360px' }}>
               <label style={estiloLabel}>Seleccione el reporte</label>
@@ -798,7 +940,7 @@ if (filtroRangoStock === 'mayor-500') cumpleStock = stock > 500
 
             {tipoReporte === 'productos' && (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '18px', marginBottom: '22px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '18px', marginBottom: '22px', alignItems: 'end' }}>
                   <div>
                     <label style={estiloLabel}>Categoría</label>
                     <select value={filtroCategoriaProducto} onChange={(e) => setFiltroCategoriaProducto(e.target.value)} style={estiloInput}>
@@ -832,10 +974,31 @@ if (filtroRangoStock === 'mayor-500') cumpleStock = stock > 500
                       <option value="mayor-500">Mayor a 500</option>
                     </select>
                   </div>
+
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setMostrarSoloAlertas(!mostrarSoloAlertas)}
+                      style={{
+                        width: '100%',
+                        padding: '12px 18px',
+                        backgroundColor: mostrarSoloAlertas ? '#991B1B' : '#DC2626',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: '12px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        boxShadow: '0 8px 18px rgba(220,38,38,0.18)',
+                      }}
+                    >
+                      Alertas
+                    </button>
+                  </div>
                 </div>
 
                 <p style={{ color: '#6B7280', marginBottom: '14px' }}>
-                  Mostrando {productosFiltradosReporte.length} producto(s).
+                  Mostrando {productosFiltradosReporte.length} producto(s)
+                  {mostrarSoloAlertas ? ' con alerta de stock bajo.' : '.'}
                 </p>
 
                 <div style={estiloTablaContenedor}>
@@ -848,6 +1011,7 @@ if (filtroRangoStock === 'mayor-500') cumpleStock = stock > 500
                         <th style={estiloTh}>Precio compra</th>
                         <th style={estiloTh}>Precio venta</th>
                         <th style={estiloTh}>Stock</th>
+                        <th style={estiloTh}>Stock mínimo</th>
                         <th style={estiloTh}>Impuesto</th>
                         <th style={estiloTh}>Fecha registro</th>
                       </tr>
@@ -855,23 +1019,35 @@ if (filtroRangoStock === 'mayor-500') cumpleStock = stock > 500
                     <tbody>
                       {productosFiltradosReporte.length === 0 ? (
                         <tr>
-                          <td colSpan={8} style={{ padding: '18px', textAlign: 'center', color: '#6B7280' }}>
+                          <td colSpan={9} style={{ padding: '18px', textAlign: 'center', color: '#6B7280' }}>
                             No hay productos para mostrar.
                           </td>
                         </tr>
                       ) : (
-                        productosFiltradosReporte.map((p) => (
-                          <tr key={p.id_producto}>
-                            <td style={estiloTd}>{p.descripcion}</td>
-                            <td style={estiloTd}>{p.categoria}</td>
-                            <td style={estiloTd}>{p.unidad_medida}</td>
-                            <td style={estiloTd}>L {p.precio_compra}</td>
-                            <td style={estiloTd}>L {p.precio_venta}</td>
-                            <td style={estiloTd}>{p.stock_actual}</td>
-                            <td style={estiloTd}>{Number(p.impuesto) === 0 ? 'Exento (0%)' : 'ISV (15%)'}</td>
-                            <td style={estiloTd}>{p.fecha_registro || 'Sin fecha'}</td>
-                          </tr>
-                        ))
+                        productosFiltradosReporte.map((p) => {
+                          const esStockBajo = productoTieneStockBajo(p)
+
+                          return (
+                            <tr key={p.id_producto} style={{ backgroundColor: esStockBajo ? '#FEF2F2' : '#FFFFFF' }}>
+                              <td style={estiloTd}>{p.descripcion}</td>
+                              <td style={estiloTd}>{p.categoria}</td>
+                              <td style={estiloTd}>{p.unidad_medida}</td>
+                              <td style={estiloTd}>L {p.precio_compra}</td>
+                              <td style={estiloTd}>L {p.precio_venta}</td>
+                              <td style={estiloTd}>
+                                {p.stock_actual}
+                                {esStockBajo && (
+                                  <span style={{ color: '#B91C1C', fontWeight: 'bold', marginLeft: '8px' }}>
+                                    ⚠ Bajo
+                                  </span>
+                                )}
+                              </td>
+                              <td style={estiloTd}>{Number(p.stock_minimo ?? 10)}</td>
+                              <td style={estiloTd}>{Number(p.impuesto) === 0 ? 'Exento (0%)' : 'ISV (15%)'}</td>
+                              <td style={estiloTd}>{p.fecha_registro || 'Sin fecha'}</td>
+                            </tr>
+                          )
+                        })
                       )}
                     </tbody>
                   </table>
@@ -899,6 +1075,16 @@ if (filtroRangoStock === 'mayor-500') cumpleStock = stock > 500
                       {categoriasExistentes.map((cat, index) => (
                         <option key={index} value={cat}>{cat}</option>
                       ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={estiloLabel}>Tipo</label>
+                    <select value={filtroTipoMovimiento} onChange={(e) => setFiltroTipoMovimiento(e.target.value)} style={estiloInput}>
+                      <option value="Todos">Todos</option>
+                      <option value="Entrada">Entrada</option>
+                      <option value="Salida">Salida</option>
+                      <option value="Venta">Ventas</option>
                     </select>
                   </div>
                 </div>
@@ -932,7 +1118,7 @@ if (filtroRangoStock === 'mayor-500') cumpleStock = stock > 500
                           <tr key={m.id_movimiento}>
                             <td style={estiloTd}>{m.fecha_registro || 'Sin fecha'}</td>
                             <td style={estiloTd}>{m.descripcion}</td>
-                            <td style={estiloTd}>{m.categoria || '-'}</td>
+                            <td style={estiloTd}>{obtenerCategoriaMovimiento(m)}</td>
                             <td style={estiloTd}>{m.tipo_operacion}</td>
                             <td style={estiloTd}>{m.cantidad}</td>
                             <td style={estiloTd}>{m.stock_anterior}</td>

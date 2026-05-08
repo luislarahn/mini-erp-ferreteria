@@ -93,6 +93,11 @@ export default function PersonalTab() {
   const [fechaIngreso, setFechaIngreso] = useState(hoyLocal())
   const [estadoLaboral, setEstadoLaboral] = useState<'Activo' | 'Despedido' | 'Retirado'>('Activo')
 
+  const [searchDni, setSearchDni] = useState('')
+  const [searchCodigo, setSearchCodigo] = useState('')
+  const [empleadosEncontrados, setEmpleadosEncontrados] = useState<Empleado[] | null>(null)
+  const [empleadoEditando, setEmpleadoEditando] = useState<Empleado | null>(null)
+
   useEffect(() => {
     cargarDatos()
   }, [])
@@ -176,6 +181,131 @@ export default function PersonalTab() {
     setSalario('')
     setFechaIngreso(hoyLocal())
     setEstadoLaboral('Activo')
+    setEmpleadoEditando(null)
+  }
+
+  function resetBusqueda() {
+    setSearchDni('')
+    setSearchCodigo('')
+    setEmpleadosEncontrados(null)
+    setMensaje('')
+  }
+
+  async function buscarEmpleado() {
+    setMensaje('')
+    const dni = searchDni.trim()
+    const codigo = searchCodigo.trim()
+
+    if (!dni && !codigo) {
+      setMensaje('Ingrese DNI o Código para buscar.')
+      return
+    }
+
+    setCargando(true)
+
+    try {
+      const consulta = supabase
+        .from('empleados')
+        .select(`
+          id_empleado,
+          dni_empleado,
+          codigo_empleado,
+          nombre_completo,
+          fecha_nacimiento,
+          genero,
+          estado_civil,
+          profesion,
+          salario,
+          fecha_ingreso,
+          estado_laboral,
+          id_puesto,
+          puestos(nombre_puesto)
+        `)
+
+      if (dni && codigo) {
+        consulta.or(`dni_empleado.eq.${dni},codigo_empleado.eq.${codigo}`)
+      } else if (dni) {
+        consulta.eq('dni_empleado', dni)
+      } else if (codigo) {
+        consulta.eq('codigo_empleado', codigo)
+      }
+
+      const { data, error } = await consulta.order('id_empleado', { ascending: false })
+
+      if (error) throw error
+
+      const resultados: Empleado[] = (data || []).map((e: any) => ({
+        id_empleado: e.id_empleado,
+        dni_empleado: e.dni_empleado,
+        codigo_empleado: e.codigo_empleado,
+        nombre_completo: e.nombre_completo,
+        fecha_nacimiento: e.fecha_nacimiento || null,
+        genero: e.genero,
+        estado_civil: e.estado_civil,
+        profesion: e.profesion || null,
+        salario: Number(e.salario || 0),
+        fecha_ingreso: e.fecha_ingreso,
+        estado_laboral: e.estado_laboral,
+        id_puesto: e.id_puesto,
+        puestos: Array.isArray(e.puestos)
+          ? e.puestos
+          : e.puestos
+            ? [e.puestos]
+            : [],
+      }))
+
+      setEmpleadosEncontrados(resultados)
+      if (resultados.length === 0) {
+        setMensaje('No se encontró ningún empleado con esos datos.')
+      }
+    } catch (error: any) {
+      console.log('Error al buscar empleado:', error)
+      setMensaje(`Error al buscar empleado: ${error?.message || 'Error inesperado.'}`)
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  function editarEmpleado(empleado: Empleado) {
+    setEmpleadoEditando(empleado)
+    setDniEmpleado(empleado.dni_empleado)
+    setNombreCompleto(empleado.nombre_completo)
+    setFechaNacimiento(empleado.fecha_nacimiento || '')
+    setGenero(empleado.genero)
+    setEstadoCivil(empleado.estado_civil)
+    setProfesion(empleado.profesion || '')
+    setPuestoInput(empleado.puestos?.[0]?.nombre_puesto ?? '')
+    setSalario(String(empleado.salario || 0))
+    setFechaIngreso(empleado.fecha_ingreso)
+    setEstadoLaboral(empleado.estado_laboral)
+    setMensaje(`Editando empleado ${empleado.codigo_empleado}. Actualiza los campos y guarda.`)
+  }
+
+  async function eliminarEmpleado(idEmpleado: number) {
+    const confirmar = window.confirm('¿Deseas eliminar este empleado? Esta acción no se puede deshacer.')
+    if (!confirmar) return
+
+    setCargando(true)
+    setMensaje('')
+
+    try {
+      const { error } = await supabase.from('empleados').delete().eq('id_empleado', idEmpleado)
+      if (error) throw error
+
+      setMensaje('Empleado eliminado correctamente.')
+      if (empleadosEncontrados) {
+        setEmpleadosEncontrados((prev) => prev?.filter((e) => e.id_empleado !== idEmpleado) || null)
+      }
+      if (empleadoEditando?.id_empleado === idEmpleado) {
+        limpiarFormulario()
+      }
+      await cargarDatos()
+    } catch (error: any) {
+      console.log('Error al eliminar empleado:', error)
+      setMensaje(`Error al eliminar empleado: ${error?.message || 'Error.'}`)
+    } finally {
+      setCargando(false)
+    }
   }
 
   const puestoExistente = useMemo(() => {
@@ -185,6 +315,7 @@ export default function PersonalTab() {
   }, [puestoInput, puestos])
 
   const codigoPreview = useMemo(() => {
+    if (empleadoEditando) return empleadoEditando.codigo_empleado
     if (!puestoInput.trim()) return 'Se genera al guardar'
 
     if (puestoExistente) {
@@ -195,7 +326,10 @@ export default function PersonalTab() {
 
     const prefijoNuevo = generarPrefijoDisponible(puestoInput, puestos)
     return `${prefijoNuevo}-01`
-  }, [puestoInput, puestoExistente, empleados, puestos])
+  }, [puestoInput, puestoExistente, empleados, puestos, empleadoEditando])
+
+  const empleadosAMostrar = empleadosEncontrados !== null ? empleadosEncontrados : empleados
+  const accionesVisibles = empleadosEncontrados !== null
 
   function manejarCambioPuesto(valor: string) {
     setPuestoInput(valor)
@@ -241,22 +375,39 @@ export default function PersonalTab() {
     setGuardando(true)
 
     try {
-      const { data: empleadoDniExistente, error: errorDni } = await supabase
-        .from('empleados')
-        .select('id_empleado')
-        .eq('dni_empleado', dni)
-        .limit(1)
-
-      if (errorDni) throw errorDni
-
-      if (empleadoDniExistente && empleadoDniExistente.length > 0) {
-        setMensaje('Ya existe un empleado con ese DNI.')
-        setGuardando(false)
-        return
-      }
-
       let puestoId = puestoExistente?.id_puesto || null
       let prefijoPuesto = puestoExistente?.prefijo_puesto || ''
+
+      if (!empleadoEditando) {
+        const { data: empleadoDniExistente, error: errorDni } = await supabase
+          .from('empleados')
+          .select('id_empleado')
+          .eq('dni_empleado', dni)
+          .limit(1)
+
+        if (errorDni) throw errorDni
+
+        if (empleadoDniExistente && empleadoDniExistente.length > 0) {
+          setMensaje('Ya existe un empleado con ese DNI.')
+          setGuardando(false)
+          return
+        }
+      } else {
+        const { data: empleadoDniExistente, error: errorDni } = await supabase
+          .from('empleados')
+          .select('id_empleado')
+          .eq('dni_empleado', dni)
+          .neq('id_empleado', empleadoEditando.id_empleado)
+          .limit(1)
+
+        if (errorDni) throw errorDni
+
+        if (empleadoDniExistente && empleadoDniExistente.length > 0) {
+          setMensaje('Ya existe un empleado con ese DNI.')
+          setGuardando(false)
+          return
+        }
+      }
 
       if (!puestoId) {
         const prefijoNuevo = generarPrefijoDisponible(puestoTexto, puestos)
@@ -279,35 +430,60 @@ export default function PersonalTab() {
         prefijoPuesto = puestoCreado.prefijo_puesto
       }
 
-      const correlativo =
-        empleados.filter((e) => e.id_puesto === puestoId).length + 1
+      if (!empleadoEditando) {
+        const correlativo =
+          empleados.filter((e) => e.id_puesto === puestoId).length + 1
 
-      const codigoEmpleado = `${prefijoPuesto}-${String(correlativo).padStart(2, '0')}`
+        const codigoEmpleado = `${prefijoPuesto}-${String(correlativo).padStart(2, '0')}`
 
-      const { error: errorEmpleado } = await supabase.from('empleados').insert([
-        {
-          dni_empleado: dni,
-          codigo_empleado: codigoEmpleado,
-          nombre_completo: nombre,
-          fecha_nacimiento: fechaNacimiento || null,
-          genero,
-          estado_civil: estadoCivil,
-          profesion: profesionTexto || null,
-          salario: salarioNumero,
-          fecha_ingreso: fechaIngreso,
-          estado_laboral: estadoLaboral,
-          id_puesto: puestoId,
-        },
-      ])
+        const { error: errorEmpleado } = await supabase.from('empleados').insert([
+          {
+            dni_empleado: dni,
+            codigo_empleado: codigoEmpleado,
+            nombre_completo: nombre,
+            fecha_nacimiento: fechaNacimiento || null,
+            genero,
+            estado_civil: estadoCivil,
+            profesion: profesionTexto || null,
+            salario: salarioNumero,
+            fecha_ingreso: fechaIngreso,
+            estado_laboral: estadoLaboral,
+            id_puesto: puestoId,
+          },
+        ])
 
-      if (errorEmpleado) throw errorEmpleado
+        if (errorEmpleado) throw errorEmpleado
 
-      setMensaje(`Empleado guardado correctamente con código ${codigoEmpleado}.`)
+        setMensaje(`Empleado guardado correctamente con código ${codigoEmpleado}.`)
+      } else {
+        const { error: errorEmpleado } = await supabase
+          .from('empleados')
+          .update([
+            {
+              dni_empleado: dni,
+              nombre_completo: nombre,
+              fecha_nacimiento: fechaNacimiento || null,
+              genero,
+              estado_civil: estadoCivil,
+              profesion: profesionTexto || null,
+              salario: salarioNumero,
+              fecha_ingreso: fechaIngreso,
+              estado_laboral: estadoLaboral,
+              id_puesto: puestoId,
+            },
+          ])
+          .eq('id_empleado', empleadoEditando.id_empleado)
+
+        if (errorEmpleado) throw errorEmpleado
+
+        setMensaje(`Empleado actualizado correctamente.`)
+      }
+
       limpiarFormulario()
       await cargarDatos()
     } catch (error: any) {
       console.log('Error al guardar empleado:', error)
-      setMensaje(`Error al guardar empleado: ${error?.message || 'Error inesperado.'}`)
+      setMensaje(`Error al guardar empleado: ${error?.message || 'Error.'}`)
     } finally {
       setGuardando(false)
     }
@@ -473,27 +649,77 @@ export default function PersonalTab() {
               </div>
             )}
 
-            <div className="flex gap-3 pt-2">
+            <div className="flex flex-wrap gap-3 pt-2">
               <button
                 onClick={guardarEmpleado}
                 disabled={guardando}
-                className="w-full px-4 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold disabled:opacity-50"
+                className="flex-1 min-w-[160px] px-4 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold disabled:opacity-50"
               >
-                {guardando ? 'Guardando...' : 'Guardar Empleado'}
+                {guardando ? 'Guardando...' : empleadoEditando ? 'Actualizar Empleado' : 'Guardar Empleado'}
               </button>
 
               <button
                 onClick={limpiarFormulario}
                 type="button"
-                className="px-4 py-3 rounded-lg bg-gray-200 hover:bg-gray-300 text-black font-semibold"
+                className="flex-1 min-w-[160px] px-4 py-3 rounded-lg bg-gray-200 hover:bg-gray-300 text-black font-semibold"
               >
                 Limpiar
               </button>
+
+              {empleadoEditando && (
+                <button
+                  onClick={limpiarFormulario}
+                  type="button"
+                  className="flex-1 min-w-[160px] px-4 py-3 rounded-lg bg-gray-200 hover:bg-gray-300 text-black font-semibold"
+                >
+                  Cancelar edición
+                </button>
+              )}
             </div>
           </div>
         </div>
 
         <div className="xl:col-span-3 bg-gray-50 border border-gray-300 rounded-2xl p-4 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block mb-1 text-black">Buscar por DNI:</label>
+              <input
+                type="text"
+                value={searchDni}
+                onChange={(e) => setSearchDni(e.target.value)}
+                placeholder="0000-0000-00000"
+                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
+              />
+            </div>
+
+            <div>
+              <label className="block mb-1 text-black">Buscar por Código:</label>
+              <input
+                type="text"
+                value={searchCodigo}
+                onChange={(e) => setSearchCodigo(e.target.value)}
+                placeholder="ECO-01"
+                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3 mb-4">
+            <button
+              onClick={buscarEmpleado}
+              className="px-4 py-3 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold"
+            >
+              Buscar empleado
+            </button>
+            <button
+              onClick={resetBusqueda}
+              disabled={empleadosEncontrados === null}
+              className="px-4 py-3 rounded-lg bg-gray-200 hover:bg-gray-300 text-black font-semibold disabled:opacity-50"
+            >
+              Restablecer búsqueda
+            </button>
+          </div>
+
           <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
             <table className="w-full border-collapse">
               <thead>
@@ -505,23 +731,28 @@ export default function PersonalTab() {
                   <th className="p-4 text-right border border-gray-200">Salario</th>
                   <th className="p-4 text-center border border-gray-200">Ingreso</th>
                   <th className="p-4 text-center border border-gray-200">Estado</th>
+                  {accionesVisibles && (
+                    <th className="p-4 text-center border border-gray-200">Acciones</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {cargando ? (
                   <tr>
-                    <td colSpan={7} className="p-6 text-center text-gray-600 bg-white">
+                    <td colSpan={accionesVisibles ? 8 : 7} className="p-6 text-center text-gray-600 bg-white">
                       Cargando empleados...
                     </td>
                   </tr>
-                ) : empleados.length === 0 ? (
+                ) : empleadosAMostrar.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-6 text-center text-gray-600 bg-white">
-                      No hay empleados registrados todavía.
+                    <td colSpan={accionesVisibles ? 8 : 7} className="p-6 text-center text-gray-600 bg-white">
+                      {empleadosEncontrados !== null
+                        ? 'No se encontró ningún empleado con esos datos.'
+                        : 'No hay empleados registrados todavía.'}
                     </td>
                   </tr>
                 ) : (
-                  empleados.map((empleado) => (
+                  empleadosAMostrar.map((empleado) => (
                     <tr key={empleado.id_empleado} className="bg-white text-black">
                       <td className="p-4 border border-gray-200">{empleado.dni_empleado}</td>
                       <td className="p-4 border border-gray-200">{empleado.codigo_empleado}</td>
@@ -538,6 +769,24 @@ export default function PersonalTab() {
                       <td className="p-4 border border-gray-200 text-center">
                         {empleado.estado_laboral}
                       </td>
+                      {accionesVisibles && (
+                        <td className="p-4 border border-gray-200 text-center">
+                          <div className="flex justify-center gap-2">
+                            <button
+                              onClick={() => editarEmpleado(empleado)}
+                              className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-sm"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => eliminarEmpleado(empleado.id_empleado)}
+                              className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm"
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}

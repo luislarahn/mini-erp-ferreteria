@@ -4,11 +4,21 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import FacturacionTab from '../../components/clientes/FacturacionTab'
+import RecibosTab from '../../components/clientes/RecibosTab'
+import NotasCreditoTab from '../../components/clientes/NotasCreditoTab'
 import ClientesTab from '../../components/clientes/ClientesTab'
 import ReportesTab from '../../components/clientes/ReportesTab'
+import ConfiguracionesTab from '../../components/clientes/ConfiguracionesTab'
 import ReporteProductos from '../../components/clientes/inventario/ReporteProductos'
 
-type PestanaActiva = 'facturacion' | 'productos' | 'clientes' | 'reportes'
+type PestanaActiva =
+  | 'facturacion'
+  | 'recibos'
+  | 'notasCredito'
+  | 'productos'
+  | 'clientes'
+  | 'reportes'
+  | 'configuraciones'
 
 export default function ClientesPage() {
   const router = useRouter()
@@ -51,6 +61,7 @@ export default function ClientesPage() {
       borderRadius: '12px',
       fontWeight: 'bold' as const,
       marginRight: '10px',
+      marginBottom: '10px',
       boxShadow: activa
         ? '0 8px 18px rgba(15,118,110,0.18)'
         : '0 2px 6px rgba(0,0,0,0.03)',
@@ -288,13 +299,29 @@ export default function ClientesPage() {
           ← Volver al dashboard
         </a>
 
-        <div style={{ marginBottom: '22px' }}>
+        <div style={{ marginBottom: '22px', display: 'flex', flexWrap: 'wrap' }}>
           <button
             type="button"
             onClick={() => setPestanaActiva('facturacion')}
             style={estiloPestana(pestanaActiva === 'facturacion')}
           >
             Facturación
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPestanaActiva('recibos')}
+            style={estiloPestana(pestanaActiva === 'recibos')}
+          >
+            Recibos
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPestanaActiva('notasCredito')}
+            style={estiloPestana(pestanaActiva === 'notasCredito')}
+          >
+            Notas de Crédito
           </button>
 
           <button
@@ -320,6 +347,14 @@ export default function ClientesPage() {
           >
             Reportes
           </button>
+
+          <button
+            type="button"
+            onClick={() => setPestanaActiva('configuraciones')}
+            style={estiloPestana(pestanaActiva === 'configuraciones')}
+          >
+            Configuraciones
+          </button>
         </div>
 
         <div
@@ -331,10 +366,19 @@ export default function ClientesPage() {
             boxShadow: '0 10px 24px rgba(0,0,0,0.05)',
           }}
         >
-          {pestanaActiva === 'facturacion' && <FacturacionTab />}
+          {pestanaActiva === 'facturacion' && (
+            <FacturacionTab irACrearCliente={() => setPestanaActiva('clientes')} />
+          )}
+          {pestanaActiva === 'recibos' && (
+            <RecibosTab irACrearCliente={() => setPestanaActiva('clientes')} />
+          )}
+          {pestanaActiva === 'notasCredito' && (
+            <NotasCreditoTab irACrearCliente={() => setPestanaActiva('clientes')} />
+          )}
           {pestanaActiva === 'productos' && <ReporteProductos />}
           {pestanaActiva === 'clientes' && <ClientesTab />}
           {pestanaActiva === 'reportes' && <ReportesTab />}
+          {pestanaActiva === 'configuraciones' && <ConfiguracionesTab />}
         </div>
       </main>
     </div>

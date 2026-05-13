@@ -3,6 +3,8 @@
 import { ChangeEvent, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 
+type TipoImpuesto = 'Exento' | 'Exonerado' | 'ISV 15%' | 'ISV 18%'
+
 type Cliente = {
   id_cliente: number
   nombre_cliente: string
@@ -25,6 +27,7 @@ type Correlativo = {
   id_correlativo: number
   secuencia_fiscal: string
   numero: number
+  tipo_documento?: string | null
 }
 
 type LineaFactura = {
@@ -32,14 +35,25 @@ type LineaFactura = {
   id_producto: number | ''
   cantidad: number
   precio_unitario: number
+  tipo_impuesto: TipoImpuesto
   porcentaje_impuesto: number
   subtotal_linea: number
   monto_impuesto_linea: number
   total_linea: number
 }
 
+type FacturacionTabProps = {
+  irACrearCliente?: () => void
+}
+
 function hoyLocal() {
   return new Date().toISOString().split('T')[0]
+}
+
+function obtenerPorcentajeImpuesto(tipoImpuesto: TipoImpuesto) {
+  if (tipoImpuesto === 'ISV 15%') return 15
+  if (tipoImpuesto === 'ISV 18%') return 18
+  return 0
 }
 
 function crearLineaVacia(idFila: number): LineaFactura {
@@ -48,7 +62,8 @@ function crearLineaVacia(idFila: number): LineaFactura {
     id_producto: '',
     cantidad: 1,
     precio_unitario: 0,
-    porcentaje_impuesto: 0,
+    tipo_impuesto: 'ISV 15%',
+    porcentaje_impuesto: 15,
     subtotal_linea: 0,
     monto_impuesto_linea: 0,
     total_linea: 0,
@@ -58,7 +73,7 @@ function crearLineaVacia(idFila: number): LineaFactura {
 function recalcularLinea(linea: LineaFactura): LineaFactura {
   const cantidad = Number(linea.cantidad) || 0
   const precio = Number(linea.precio_unitario) || 0
-  const porcentaje = Number(linea.porcentaje_impuesto) || 0
+  const porcentaje = obtenerPorcentajeImpuesto(linea.tipo_impuesto)
 
   const subtotal = cantidad * precio
   const impuestoMonto = subtotal * (porcentaje / 100)
@@ -66,6 +81,7 @@ function recalcularLinea(linea: LineaFactura): LineaFactura {
 
   return {
     ...linea,
+    porcentaje_impuesto: porcentaje,
     subtotal_linea: Number(subtotal.toFixed(2)),
     monto_impuesto_linea: Number(impuestoMonto.toFixed(2)),
     total_linea: Number(total.toFixed(2)),
@@ -91,7 +107,7 @@ function obtenerMensajeError(error: any) {
   }
 }
 
-export default function FacturacionTab() {
+export default function FacturacionTab({ irACrearCliente }: FacturacionTabProps) {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [productos, setProductos] = useState<Producto[]>([])
   const [correlativos, setCorrelativos] = useState<Correlativo[]>([])
@@ -135,8 +151,21 @@ export default function FacturacionTab() {
 
         supabase
           .from('correlativos_fiscales')
-          .select('id_correlativo, secuencia_fiscal, numero')
+          .select(`
+            id_correlativo,
+            secuencia_fiscal,
+            numero,
+            tipo_documento,
+            autorizaciones_fiscales!inner (
+              id_autorizacion,
+              activo,
+              fecha_expiracion
+            )
+          `)
           .eq('usado', false)
+          .eq('tipo_documento', 'factura')
+          .eq('autorizaciones_fiscales.activo', true)
+          .gte('autorizaciones_fiscales.fecha_expiracion', hoyLocal())
           .order('numero', { ascending: true }),
       ])
 
@@ -146,7 +175,7 @@ export default function FacturacionTab() {
 
       const clientesData = clientesRes.data || []
       const productosData = productosRes.data || []
-      const correlativosData = correlativosRes.data || []
+      const correlativosData = (correlativosRes.data || []) as Correlativo[]
 
       setClientes(clientesData)
       setProductos(productosData)
@@ -191,20 +220,14 @@ export default function FacturacionTab() {
     setRtn(encontrado.rtn || '')
   }
 
-  function cambiarCorrelativo(e: ChangeEvent<HTMLSelectElement>) {
-    const valor = e.target.value
+  function detectarTipoImpuestoProducto(producto?: Producto): TipoImpuesto {
+    const impuestoProducto = Number(producto?.impuesto || 0)
 
-    if (!valor) {
-      setIdCorrelativo('')
-      setSecuenciaFiscal('')
-      return
-    }
+    if (impuestoProducto === 18) return 'ISV 18%'
+    if (impuestoProducto === 15) return 'ISV 15%'
+    if (impuestoProducto === 0) return 'Exento'
 
-    const id = Number(valor)
-    const correlativo = correlativos.find((c) => c.id_correlativo === id)
-
-    setIdCorrelativo(id)
-    setSecuenciaFiscal(correlativo?.secuencia_fiscal || '')
+    return 'ISV 15%'
   }
 
   function cambiarProductoLinea(index: number, e: ChangeEvent<HTMLSelectElement>) {
@@ -219,19 +242,23 @@ export default function FacturacionTab() {
           id_producto: '',
           cantidad: 1,
           precio_unitario: 0,
-          porcentaje_impuesto: 0,
+          tipo_impuesto: 'ISV 15%',
+          porcentaje_impuesto: 15,
         })
+
         return nuevas
       }
 
       const idProducto = Number(valor)
       const producto = productos.find((p) => p.id_producto === idProducto)
+      const tipoImpuesto = detectarTipoImpuestoProducto(producto)
 
       nuevas[index] = recalcularLinea({
         ...nuevas[index],
         id_producto: idProducto,
         precio_unitario: Number(producto?.precio_venta || 0),
-        porcentaje_impuesto: Number(producto?.impuesto || 0),
+        tipo_impuesto: tipoImpuesto,
+        porcentaje_impuesto: obtenerPorcentajeImpuesto(tipoImpuesto),
       })
 
       return nuevas
@@ -264,6 +291,20 @@ export default function FacturacionTab() {
     })
   }
 
+  function cambiarTipoImpuestoLinea(index: number, e: ChangeEvent<HTMLSelectElement>) {
+    const valor = e.target.value as TipoImpuesto
+
+    setLineas((prev) => {
+      const nuevas = [...prev]
+      nuevas[index] = recalcularLinea({
+        ...nuevas[index],
+        tipo_impuesto: valor,
+        porcentaje_impuesto: obtenerPorcentajeImpuesto(valor),
+      })
+      return nuevas
+    })
+  }
+
   function agregarLinea() {
     setLineas((prev) => [...prev, crearLineaVacia(Date.now())])
   }
@@ -276,16 +317,47 @@ export default function FacturacionTab() {
   }
 
   const totales = useMemo(() => {
-    const subtotal = lineas.reduce((acc, linea) => acc + Number(linea.subtotal_linea || 0), 0)
-    const impuesto = lineas.reduce(
-      (acc, linea) => acc + Number(linea.monto_impuesto_linea || 0),
+    const subtotal = lineas.reduce(
+      (acc, linea) => acc + Number(linea.subtotal_linea || 0),
       0
     )
-    const total = subtotal + impuesto
+
+    const importeExonerado = lineas
+      .filter((linea) => linea.tipo_impuesto === 'Exonerado')
+      .reduce((acc, linea) => acc + Number(linea.subtotal_linea || 0), 0)
+
+    const importeExento = lineas
+      .filter((linea) => linea.tipo_impuesto === 'Exento')
+      .reduce((acc, linea) => acc + Number(linea.subtotal_linea || 0), 0)
+
+    const importeGravado15 = lineas
+      .filter((linea) => linea.tipo_impuesto === 'ISV 15%')
+      .reduce((acc, linea) => acc + Number(linea.subtotal_linea || 0), 0)
+
+    const importeGravado18 = lineas
+      .filter((linea) => linea.tipo_impuesto === 'ISV 18%')
+      .reduce((acc, linea) => acc + Number(linea.subtotal_linea || 0), 0)
+
+    const isv15 = lineas
+      .filter((linea) => linea.tipo_impuesto === 'ISV 15%')
+      .reduce((acc, linea) => acc + Number(linea.monto_impuesto_linea || 0), 0)
+
+    const isv18 = lineas
+      .filter((linea) => linea.tipo_impuesto === 'ISV 18%')
+      .reduce((acc, linea) => acc + Number(linea.monto_impuesto_linea || 0), 0)
+
+    const total = subtotal + isv15 + isv18
+    const impuestoTotal = isv15 + isv18
 
     return {
       subtotal: Number(subtotal.toFixed(2)),
-      impuesto: Number(impuesto.toFixed(2)),
+      importeExonerado: Number(importeExonerado.toFixed(2)),
+      importeExento: Number(importeExento.toFixed(2)),
+      importeGravado15: Number(importeGravado15.toFixed(2)),
+      importeGravado18: Number(importeGravado18.toFixed(2)),
+      isv15: Number(isv15.toFixed(2)),
+      isv18: Number(isv18.toFixed(2)),
+      impuestoTotal: Number(impuestoTotal.toFixed(2)),
       total: Number(total.toFixed(2)),
     }
   }, [lineas])
@@ -299,7 +371,7 @@ export default function FacturacionTab() {
     }
 
     if (!idCorrelativo || !secuenciaFiscal) {
-      setMensaje('Debe seleccionar una secuencia fiscal disponible.')
+      setMensaje('No hay secuencias fiscales disponibles. Cree o cargue una autorización fiscal en Configuraciones.')
       return
     }
 
@@ -332,13 +404,21 @@ export default function FacturacionTab() {
     setGuardando(true)
 
     try {
+      const correlativoActual = correlativos[0]
+
+      if (!correlativoActual) {
+        setMensaje('No hay secuencias fiscales disponibles.')
+        setGuardando(false)
+        return
+      }
+
       const { data: facturaCreada, error: errorFactura } = await supabase
         .from('facturas')
         .insert([
           {
             id_cliente: idCliente,
-            id_correlativo: Number(idCorrelativo),
-            secuencia_fiscal: secuenciaFiscal,
+            id_correlativo: correlativoActual.id_correlativo,
+            secuencia_fiscal: correlativoActual.secuencia_fiscal,
             nombre_cliente: nombreCliente.trim(),
             direccion: direccion.trim() || null,
             correo: correo.trim() || null,
@@ -346,7 +426,13 @@ export default function FacturacionTab() {
             rtn: rtn.trim() || null,
             fecha_factura: fechaFactura,
             subtotal: totales.subtotal,
-            impuesto_total: totales.impuesto,
+            importe_exonerado: totales.importeExonerado,
+            importe_exento: totales.importeExento,
+            importe_gravado_15: totales.importeGravado15,
+            importe_gravado_18: totales.importeGravado18,
+            isv_15: totales.isv15,
+            isv_18: totales.isv18,
+            impuesto_total: totales.impuestoTotal,
             total_factura: totales.total,
             estado: 'Emitida',
           },
@@ -367,6 +453,7 @@ export default function FacturacionTab() {
           descripcion_producto: producto?.descripcion || 'Producto',
           cantidad: Number(linea.cantidad),
           precio_unitario: Number(linea.precio_unitario),
+          tipo_impuesto: linea.tipo_impuesto,
           porcentaje_impuesto: Number(linea.porcentaje_impuesto),
           subtotal_linea: Number(linea.subtotal_linea),
           monto_impuesto_linea: Number(linea.monto_impuesto_linea),
@@ -386,7 +473,7 @@ export default function FacturacionTab() {
           usado: true,
           fecha_asignacion: fechaFactura,
         })
-        .eq('id_correlativo', Number(idCorrelativo))
+        .eq('id_correlativo', correlativoActual.id_correlativo)
 
       if (errorCorrelativo) throw errorCorrelativo
 
@@ -413,7 +500,7 @@ export default function FacturacionTab() {
             {
               id_producto: Number(linea.id_producto),
               descripcion: producto.descripcion,
-              tipo_operacion: `Salida por factura ${secuenciaFiscal}`,
+              tipo_operacion: `Salida por factura ${correlativoActual.secuencia_fiscal}`,
               cantidad,
               stock_anterior: stockAnterior,
               stock_nuevo: stockNuevo,
@@ -424,7 +511,7 @@ export default function FacturacionTab() {
         if (errorMovimiento) throw errorMovimiento
       }
 
-      setMensaje(`Factura creada correctamente con secuencia ${secuenciaFiscal}.`)
+      setMensaje(`Factura creada correctamente con secuencia ${correlativoActual.secuencia_fiscal}.`)
 
       window.open(`/clientes/factura/${idFactura}`, '_blank')
 
@@ -478,9 +565,19 @@ export default function FacturacionTab() {
             </datalist>
 
             {!idCliente && nombreCliente.trim() !== '' && (
-              <p className="text-xs text-amber-600 mt-2">
-                Ese cliente no existe todavía. Créelo en la pestaña Clientes.
-              </p>
+              <div className="mt-2 flex items-center gap-3">
+                <p className="text-xs text-amber-600">
+                  Ese cliente no existe todavía.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={irACrearCliente}
+                  className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-500"
+                >
+                  Crear
+                </button>
+              </div>
             )}
           </div>
 
@@ -540,21 +637,12 @@ export default function FacturacionTab() {
 
           <div className="md:col-span-2">
             <label className="block mb-1 font-medium text-black">Secuencia Fiscal</label>
-            <select
-              value={idCorrelativo}
-              onChange={cambiarCorrelativo}
-              className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black"
-            >
-              <option value="">Seleccione una secuencia</option>
-              {correlativos.map((correlativo) => (
-                <option
-                  key={correlativo.id_correlativo}
-                  value={correlativo.id_correlativo}
-                >
-                  {correlativo.secuencia_fiscal}
-                </option>
-              ))}
-            </select>
+            <input
+              type="text"
+              value={secuenciaFiscal || 'No hay secuencias fiscales disponibles'}
+              readOnly
+              className="w-full rounded-lg bg-gray-100 border border-gray-300 px-3 py-2 text-black cursor-not-allowed"
+            />
           </div>
         </div>
       </div>
@@ -570,7 +658,7 @@ export default function FacturacionTab() {
                 <th className="p-3 border border-gray-200">Cantidad</th>
                 <th className="p-3 border border-gray-200">Precio</th>
                 <th className="p-3 border border-gray-200">Impuesto</th>
-                <th className="p-3 border border-gray-200">Subtotal</th>
+                <th className="p-3 border border-gray-200">Total línea</th>
                 <th className="p-3 border border-gray-200">Acción</th>
               </tr>
             </thead>
@@ -579,8 +667,6 @@ export default function FacturacionTab() {
                 const productoSeleccionado = productos.find(
                   (p) => p.id_producto === Number(linea.id_producto)
                 )
-                const impuestoTexto =
-                  Number(linea.porcentaje_impuesto) === 15 ? 'ISV 15%' : 'Exento'
 
                 return (
                   <tr key={linea.idFila} className="bg-white text-black">
@@ -627,9 +713,20 @@ export default function FacturacionTab() {
                     </td>
 
                     <td className="p-3 border border-gray-200">
-                      <div className="rounded bg-gray-100 border border-gray-300 px-2 py-1 text-black">
-                        {impuestoTexto}
-                      </div>
+                      <select
+                        value={linea.tipo_impuesto}
+                        onChange={(e) => cambiarTipoImpuestoLinea(index, e)}
+                        className="w-full rounded bg-white border border-gray-300 px-2 py-1 text-black"
+                      >
+                        <option value="Exento">Exento</option>
+                        <option value="Exonerado">Exonerado</option>
+                        <option value="ISV 15%">ISV 15%</option>
+                        <option value="ISV 18%">ISV 18%</option>
+                      </select>
+
+                      <p className="text-xs text-gray-500 mt-2">
+                        Impuesto: {moneda(linea.monto_impuesto_linea)}
+                      </p>
                     </td>
 
                     <td className="p-3 border border-gray-200">
@@ -640,6 +737,7 @@ export default function FacturacionTab() {
 
                     <td className="p-3 border border-gray-200">
                       <button
+                        type="button"
                         onClick={() => eliminarLinea(linea.idFila)}
                         className="px-3 py-1 rounded bg-red-600 hover:bg-red-500 text-white"
                       >
@@ -654,6 +752,7 @@ export default function FacturacionTab() {
         </div>
 
         <button
+          type="button"
           onClick={agregarLinea}
           className="mt-4 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
         >
@@ -669,21 +768,49 @@ export default function FacturacionTab() {
 
       <div className="max-w-md ml-auto bg-gray-50 rounded-2xl p-4 border border-gray-300 shadow-sm">
         <div className="flex justify-between mb-2 text-black">
-          <span>Subtotal sin impuesto:</span>
+          <span>Sub Total:</span>
           <span>{moneda(totales.subtotal)}</span>
         </div>
+
         <div className="flex justify-between mb-2 text-black">
-          <span>Impuesto:</span>
-          <span>{moneda(totales.impuesto)}</span>
+          <span>Importe Exonerado:</span>
+          <span>{moneda(totales.importeExonerado)}</span>
         </div>
+
+        <div className="flex justify-between mb-2 text-black">
+          <span>Importe Exento:</span>
+          <span>{moneda(totales.importeExento)}</span>
+        </div>
+
+        <div className="flex justify-between mb-2 text-black">
+          <span>Importe Gravado 15%:</span>
+          <span>{moneda(totales.importeGravado15)}</span>
+        </div>
+
+        <div className="flex justify-between mb-2 text-black">
+          <span>Importe Gravado 18%:</span>
+          <span>{moneda(totales.importeGravado18)}</span>
+        </div>
+
+        <div className="flex justify-between mb-2 text-black">
+          <span>I.S.V. 15%:</span>
+          <span>{moneda(totales.isv15)}</span>
+        </div>
+
+        <div className="flex justify-between mb-2 text-black">
+          <span>I.S.V. 18%:</span>
+          <span>{moneda(totales.isv18)}</span>
+        </div>
+
         <div className="flex justify-between font-bold text-lg border-t border-gray-300 pt-2 text-black">
-          <span>Total factura:</span>
+          <span>TOTAL A PAGAR:</span>
           <span>{moneda(totales.total)}</span>
         </div>
       </div>
 
       <div className="mt-6 flex justify-end">
         <button
+          type="button"
           onClick={guardarFactura}
           disabled={guardando}
           className="px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold disabled:opacity-50"

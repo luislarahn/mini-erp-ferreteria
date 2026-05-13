@@ -28,11 +28,20 @@ function formatearFecha(fecha: string | null) {
   return `${partes[2]}/${partes[1]}/${partes[0]}`
 }
 
+function normalizarTexto(texto: string | null | undefined) {
+  return (texto || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+}
+
 export default function ReporteProductos() {
   const [productos, setProductos] = useState<Producto[]>([])
   const [cargando, setCargando] = useState(true)
   const [mensaje, setMensaje] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('Todas')
+  const [busquedaProducto, setBusquedaProducto] = useState('')
 
   useEffect(() => {
     cargarProductos()
@@ -70,12 +79,27 @@ export default function ReporteProductos() {
   }, [productos])
 
   const productosFiltrados = useMemo(() => {
-    if (filtroCategoria === 'Todas') return productos
+    const textoBusqueda = normalizarTexto(busquedaProducto)
 
-    return productos.filter(
-      (producto) => (producto.categoria || '').trim() === filtroCategoria
-    )
-  }, [productos, filtroCategoria])
+    return productos.filter((producto) => {
+      const coincideCategoria =
+        filtroCategoria === 'Todas' || (producto.categoria || '').trim() === filtroCategoria
+
+      const coincideBusqueda =
+        textoBusqueda === '' ||
+        normalizarTexto(producto.descripcion).includes(textoBusqueda) ||
+        normalizarTexto(producto.categoria).includes(textoBusqueda) ||
+        normalizarTexto(producto.unidad_medida).includes(textoBusqueda) ||
+        String(producto.id_producto).includes(textoBusqueda)
+
+      return coincideCategoria && coincideBusqueda
+    })
+  }, [productos, filtroCategoria, busquedaProducto])
+
+  function limpiarFiltros() {
+    setFiltroCategoria('Todas')
+    setBusquedaProducto('')
+  }
 
   if (cargando) {
     return (
@@ -90,8 +114,8 @@ export default function ReporteProductos() {
       <h2 className="text-2xl font-bold mb-4 text-black">Productos</h2>
 
       <div className="bg-gray-50 border border-gray-300 rounded-2xl p-6 shadow-sm">
-        <div className="mb-6 flex flex-col md:flex-row md:items-end gap-4">
-          <div className="w-full md:w-80">
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4 md:items-end">
+          <div>
             <label className="block mb-1 font-medium text-black">Filtrar por categoría</label>
             <select
               value={filtroCategoria}
@@ -106,8 +130,31 @@ export default function ReporteProductos() {
             </select>
           </div>
 
-          <div className="text-sm text-gray-600">
-            Mostrando {productosFiltrados.length} producto(s)
+          <div>
+            <label className="block mb-1 font-medium text-black">Buscar producto</label>
+            <input
+              type="text"
+              value={busquedaProducto}
+              onChange={(e) => setBusquedaProducto(e.target.value)}
+              placeholder="Escriba el nombre del producto"
+              className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
+            />
+          </div>
+
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <div className="text-sm text-gray-600">
+              Mostrando {productosFiltrados.length} de {productos.length} producto(s)
+            </div>
+
+            {(filtroCategoria !== 'Todas' || busquedaProducto.trim() !== '') && (
+              <button
+                type="button"
+                onClick={limpiarFiltros}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100"
+              >
+                Limpiar filtros
+              </button>
+            )}
           </div>
         </div>
 
@@ -139,7 +186,7 @@ export default function ReporteProductos() {
                     colSpan={9}
                     className="p-4 text-center border border-gray-200 bg-white text-gray-500"
                   >
-                    No hay productos para mostrar.
+                    No hay productos que coincidan con la búsqueda o categoría seleccionada.
                   </td>
                 </tr>
               ) : (
@@ -159,7 +206,11 @@ export default function ReporteProductos() {
                       {producto.stock_actual ?? 0}
                     </td>
                     <td className="p-3 border border-gray-200 text-center">
-                      {Number(producto.impuesto || 0) === 15 ? 'ISV 15%' : 'Exento'}
+                      {Number(producto.impuesto || 0) === 18
+                        ? 'ISV 18%'
+                        : Number(producto.impuesto || 0) === 15
+                          ? 'ISV 15%'
+                          : 'Exento'}
                     </td>
                     <td className="p-3 border border-gray-200 text-center">
                       {formatearFecha(producto.fecha_registro)}

@@ -50,7 +50,7 @@ export default function LoginPage() {
             fontSize: '30px',
           }}
         >
-          Mini ERP
+          Ferretería PROIS
         </h1>
 
         <p
@@ -137,7 +137,7 @@ export default function LoginPage() {
             fontSize: '14px',
           }}
         >
-          Usuario de prueba: admin@admin.com / admin
+          
         </p>
       </div>
     </div>

@@ -18,6 +18,8 @@ export default function PuestosSalariosTab() {
   const [salarioBase, setSalarioBase] = useState('')
   const [cargando, setCargando] = useState(false)
   const [mensaje, setMensaje] = useState('')
+  const [editandoId, setEditandoId] = useState<number | null>(null)
+  const [dropdownOpen, setDropdownOpen] = useState<number | null>(null)
 
   useEffect(() => {
     cargarPuestos()
@@ -46,7 +48,10 @@ export default function PuestosSalariosTab() {
     setNombrePuesto('')
     setPrefijoPuesto('')
     setSalarioBase('')
+    setEditandoId(null)
   }
+
+
 
   async function guardarPuesto() {
     setMensaje('')
@@ -92,6 +97,75 @@ export default function PuestosSalariosTab() {
     await cargarPuestos()
   }
 
+  async function eliminarPuesto(id: number) {
+    if (!confirm('¿Estás seguro de que quieres eliminar este puesto?')) return
+
+    setCargando(true)
+
+    const { error } = await supabase.from('puestos').delete().eq('id_puesto', id)
+
+    if (error) {
+      console.log('Error al eliminar puesto:', error)
+      setMensaje(`Error al eliminar puesto: ${error.message}`)
+    } else {
+      setMensaje('Puesto eliminado correctamente.')
+      await cargarPuestos()
+    }
+
+    setCargando(false)
+  }
+
+  async function editarPuesto(puesto: Puesto) {
+    setEditandoId(puesto.id_puesto)
+    setNombrePuesto(puesto.nombre_puesto)
+    setPrefijoPuesto(puesto.prefijo_puesto)
+    setSalarioBase(puesto.salario_base.toString())
+    setMensaje('Puesto editado correctamente')
+  }
+
+  async function actualizarPuesto() {
+    if (!editandoId) return
+
+    const nombre = nombrePuesto.trim()
+    const prefijo = prefijoPuesto.trim().toUpperCase()
+    const salario = Number(salarioBase)
+
+    if (!nombre) {
+      setMensaje('Debe ingresar el nombre del puesto.')
+      return
+    }
+
+    if (!prefijo) {
+      setMensaje('Debe ingresar el prefijo del puesto.')
+      return
+    }
+
+    if (Number.isNaN(salario) || salario < 0) {
+      setMensaje('Debe ingresar un salario válido.')
+      return
+    }
+
+    setCargando(true)
+
+    const { error } = await supabase.from('puestos').update({
+      nombre_puesto: nombre,
+      prefijo_puesto: prefijo,
+      salario_base: salario,
+    }).eq('id_puesto', editandoId)
+
+    if (error) {
+      console.log('Error al actualizar puesto:', error)
+      setMensaje(`Error al actualizar puesto: ${error.message}`)
+    } else {
+      setMensaje('Puesto actualizado correctamente.')
+      setEditandoId(null)
+      limpiarFormulario()
+      await cargarPuestos()
+    }
+
+    setCargando(false)
+  }
+
   return (
     <div className="text-black">
       <h2 className="text-2xl font-bold mb-4 text-black">Puestos y Salarios</h2>
@@ -99,7 +173,7 @@ export default function PuestosSalariosTab() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div className="lg:col-span-2 bg-gray-50 border border-gray-300 rounded-2xl p-6 shadow-sm">
           <h3 className="text-xl font-semibold text-gray-800 underline mb-6">
-            Nuevo Puesto
+            {editandoId ? 'Editar Puesto' : 'Nuevo Puesto'}
           </h3>
 
           <div className="space-y-4">
@@ -136,20 +210,24 @@ export default function PuestosSalariosTab() {
               />
             </div>
 
-            {mensaje && (
-              <div className="rounded-lg border border-gray-300 bg-gray-100 px-4 py-3 text-sm text-black">
-                {mensaje}
-              </div>
-            )}
-
             <div className="flex gap-3 pt-2">
               <button
-                onClick={guardarPuesto}
+                onClick={editandoId ? actualizarPuesto : guardarPuesto}
                 disabled={cargando}
                 className="w-full px-4 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold disabled:opacity-50"
               >
-                {cargando ? 'Guardando...' : 'Guardar puesto'}
+                {cargando ? (editandoId ? 'Actualizando...' : 'Guardando...') : (editandoId ? 'Actualizar puesto' : 'Guardar puesto')}
               </button>
+
+              {editandoId && (
+                <button
+                  onClick={() => { setEditandoId(null); limpiarFormulario(); }}
+                  type="button"
+                  className="px-4 py-3 rounded-lg bg-red-200 hover:bg-red-300 text-black font-semibold"
+                >
+                  Cancelar
+                </button>
+              )}
 
               <button
                 onClick={limpiarFormulario}
@@ -171,18 +249,19 @@ export default function PuestosSalariosTab() {
                   <th className="p-4 text-left border border-gray-200">Puesto</th>
                   <th className="p-4 text-left border border-gray-200">Prefijo</th>
                   <th className="p-4 text-right border border-gray-200">Salario Base</th>
+                  <th className="p-4 text-center border border-gray-200"></th>
                 </tr>
               </thead>
               <tbody>
                 {cargando ? (
                   <tr>
-                    <td colSpan={4} className="p-6 text-center text-gray-600 bg-white">
+                    <td colSpan={5} className="p-6 text-center text-gray-600 bg-white">
                       Cargando puestos...
                     </td>
                   </tr>
                 ) : puestos.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="p-6 text-center text-gray-600 bg-white">
+                    <td colSpan={5} className="p-6 text-center text-gray-600 bg-white">
                       No hay puestos registrados todavía.
                     </td>
                   </tr>
@@ -194,6 +273,30 @@ export default function PuestosSalariosTab() {
                       <td className="p-4 border border-gray-200">{puesto.prefijo_puesto}</td>
                       <td className="p-4 border border-gray-200 text-right">
                         L {Number(puesto.salario_base || 0).toFixed(2)}
+                      </td>
+                      <td className="p-4 border border-gray-200 text-center relative">
+                        <button 
+                          onClick={() => setDropdownOpen(dropdownOpen === puesto.id_puesto ? null : puesto.id_puesto)} 
+                          className="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-gray-700 text-sm"
+                        >
+                          ⋮
+                        </button>
+                        {dropdownOpen === puesto.id_puesto && (
+                          <div className="absolute right-0 mt-2 w-32 bg-white border border-gray-300 rounded shadow-lg z-10">
+                            <button 
+                              onClick={() => { editarPuesto(puesto); setDropdownOpen(null); }} 
+                              className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                            >
+                              Editar
+                            </button>
+                            <button 
+                              onClick={() => { eliminarPuesto(puesto.id_puesto); setDropdownOpen(null); }} 
+                              className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-red-600"
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))

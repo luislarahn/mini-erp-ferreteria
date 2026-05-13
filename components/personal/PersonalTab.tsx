@@ -716,7 +716,7 @@ export default function PersonalTab() {
               disabled={empleadosEncontrados === null}
               className="px-4 py-3 rounded-lg bg-gray-200 hover:bg-gray-300 text-black font-semibold disabled:opacity-50"
             >
-              Restablecer búsqueda
+              Restablecer
             </button>
           </div>
 

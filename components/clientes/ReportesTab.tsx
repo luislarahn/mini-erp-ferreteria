@@ -984,18 +984,18 @@ export default function ReportesTab() {
             </div>
 
             <div className="rounded-2xl border border-gray-300 bg-white p-4 shadow-sm">
-              <p className="text-sm text-gray-500">Total vendido</p>
-              <p className="text-2xl font-bold text-black">{moneda(resumenVentas.total)}</p>
+              <p className="text-sm text-gray-500">Sub Total Global</p>
+              <p className="text-2xl font-bold text-black">{moneda(resumenVentas.subtotal)}</p>
             </div>
 
             <div className="rounded-2xl border border-gray-300 bg-white p-4 shadow-sm">
-              <p className="text-sm text-gray-500">Total impuesto</p>
+              <p className="text-sm text-gray-500">Total de Impuestos</p>
               <p className="text-2xl font-bold text-black">{moneda(resumenVentas.impuesto)}</p>
             </div>
 
             <div className="rounded-2xl border border-gray-300 bg-white p-4 shadow-sm">
-              <p className="text-sm text-gray-500">Ticket promedio</p>
-              <p className="text-2xl font-bold text-black">{moneda(resumenVentas.ticketPromedio)}</p>
+              <p className="text-sm text-gray-500">Total Facturado</p>
+              <p className="text-2xl font-bold text-black">{moneda(resumenVentas.total)}</p>
             </div>
           </div>
 

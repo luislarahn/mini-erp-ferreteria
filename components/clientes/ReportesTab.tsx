@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import * as XLSX from 'xlsx'
 import { supabase } from '../../lib/supabase'
 
 type TipoReporte = 'ventas' | 'clientes' | 'recibos' | 'notasCredito'
@@ -58,8 +59,19 @@ type ClienteConVentas = Cliente & {
   ultima_factura: string | null
 }
 
+type TablaReporte = {
+  titulo: string
+  nombreArchivo: string
+  encabezados: string[]
+  filas: Array<Array<string | number>>
+}
+
 function moneda(valor: number | null | undefined) {
   return `L ${(Number(valor) || 0).toFixed(2)}`
+}
+
+function numeroMoneda(valor: number | null | undefined) {
+  return Number((Number(valor) || 0).toFixed(2))
 }
 
 function formatearFecha(fecha: string | null | undefined) {
@@ -79,6 +91,15 @@ function normalizarTexto(texto: string | null | undefined) {
     .trim()
 }
 
+function limpiarNombreArchivo(texto: string) {
+  return texto
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+}
+
 function abrirFactura(idFactura: number) {
   window.open(`/clientes/factura/${idFactura}`, '_blank')
 }
@@ -89,6 +110,15 @@ function abrirRecibo(idRecibo: number) {
 
 function abrirNotaCredito(idNotaCredito: number) {
   window.open(`/clientes/nota-credito/${idNotaCredito}`, '_blank')
+}
+
+function escaparHtml(valor: string | number) {
+  return String(valor ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
 }
 
 export default function ReportesTab() {
@@ -504,13 +534,374 @@ export default function ReportesTab() {
     }
   }, [clientesFiltrados])
 
+  function obtenerPeriodoReporte() {
+    if (!fechaDesde && !fechaHasta) return 'Periodo: Todos los registros'
+
+    const inicio = fechaDesde ? formatearFecha(fechaDesde) : 'Inicio'
+    const final = fechaHasta ? formatearFecha(fechaHasta) : 'Actual'
+
+    return `Periodo: ${inicio} al ${final}`
+  }
+
+  function obtenerTablaReporte(): TablaReporte {
+    const periodo = obtenerPeriodoReporte()
+
+    if (tipoReporte === 'ventas') {
+      return {
+        titulo: `Reporte de Ventas - ${periodo}`,
+        nombreArchivo: 'reporte_ventas',
+        encabezados: [
+          'Número de Factura',
+          'Cliente',
+          'Fecha',
+          'Subtotal',
+          'Impuesto',
+          'Total',
+          'Estado',
+        ],
+        filas: facturasFiltradas.map((factura) => [
+          factura.secuencia_fiscal,
+          factura.nombre_cliente,
+          formatearFecha(factura.fecha_factura),
+          numeroMoneda(factura.subtotal),
+          numeroMoneda(factura.impuesto_total),
+          numeroMoneda(factura.total_factura),
+          factura.estado,
+        ]),
+      }
+    }
+
+    if (tipoReporte === 'recibos') {
+      return {
+        titulo: `Reporte de Recibos - ${periodo}`,
+        nombreArchivo: 'reporte_recibos',
+        encabezados: [
+          'Número de Recibo',
+          'Cliente',
+          'Fecha',
+          'Concepto',
+          'Valor recibido',
+          'Estado',
+        ],
+        filas: recibosFiltrados.map((recibo) => [
+          recibo.secuencia_recibo,
+          recibo.nombre_cliente,
+          formatearFecha(recibo.fecha_recibo),
+          recibo.descripcion,
+          numeroMoneda(recibo.valor_recibido),
+          recibo.estado,
+        ]),
+      }
+    }
+
+    if (tipoReporte === 'notasCredito') {
+      return {
+        titulo: `Reporte de Notas de Crédito - ${periodo}`,
+        nombreArchivo: 'reporte_notas_credito',
+        encabezados: [
+          'Número de Nota',
+          'Cliente',
+          'Fecha',
+          'Concepto',
+          'Valor nota',
+          'Estado',
+        ],
+        filas: notasCreditoFiltradas.map((nota) => [
+          nota.secuencia_fiscal,
+          nota.nombre_cliente,
+          formatearFecha(nota.fecha_nota),
+          nota.descripcion,
+          numeroMoneda(nota.valor_nota),
+          nota.estado,
+        ]),
+      }
+    }
+
+    return {
+      titulo: `Reporte de Clientes - ${periodo}`,
+      nombreArchivo: 'reporte_clientes',
+      encabezados: [
+        'Cliente',
+        'RTN',
+        'Correo',
+        'Teléfono',
+        'Facturas',
+        'Subtotal',
+        'Impuesto',
+        'Ventas totales',
+        'Última compra',
+      ],
+      filas: clientesFiltrados.map((cliente) => [
+        cliente.nombre_cliente,
+        cliente.rtn || '-',
+        cliente.correo || '-',
+        cliente.telefono || '-',
+        cliente.cantidad_facturas,
+        numeroMoneda(cliente.subtotal_facturado),
+        numeroMoneda(cliente.impuesto_facturado),
+        numeroMoneda(cliente.total_facturado),
+        formatearFecha(cliente.ultima_factura),
+      ]),
+    }
+  }
+
+  function exportarExcel() {
+    const tabla = obtenerTablaReporte()
+
+    if (tabla.filas.length === 0) {
+      setMensaje('No hay datos para exportar con los filtros actuales.')
+      return
+    }
+
+    const datos = tabla.filas.map((fila) => {
+      const registro: Record<string, string | number> = {}
+
+      tabla.encabezados.forEach((encabezado, index) => {
+        registro[encabezado] = fila[index]
+      })
+
+      return registro
+    })
+
+    const hoja = XLSX.utils.json_to_sheet(datos)
+    const libro = XLSX.utils.book_new()
+
+    hoja['!cols'] = tabla.encabezados.map((encabezado, index) => {
+      const mayorDato = tabla.filas.reduce((max, fila) => {
+        return Math.max(max, String(fila[index] ?? '').length)
+      }, encabezado.length)
+
+      return {
+        wch: Math.min(Math.max(mayorDato + 4, 14), 45),
+      }
+    })
+
+    XLSX.utils.book_append_sheet(libro, hoja, 'Reporte')
+
+    const fechaArchivo = new Date().toISOString().split('T')[0]
+    const nombreArchivo = `${limpiarNombreArchivo(tabla.nombreArchivo)}_${fechaArchivo}.xlsx`
+
+    XLSX.writeFile(libro, nombreArchivo)
+  }
+
+  function imprimirPDF() {
+    const tabla = obtenerTablaReporte()
+
+    if (tabla.filas.length === 0) {
+      setMensaje('No hay datos para imprimir con los filtros actuales.')
+      return
+    }
+
+    const fechaGeneracion = new Date().toLocaleString('es-HN')
+    const filasHtml = tabla.filas
+      .map(
+        (fila) => `
+          <tr>
+            ${fila.map((celda) => `<td>${escaparHtml(celda)}</td>`).join('')}
+          </tr>
+        `
+      )
+      .join('')
+
+    const encabezadosHtml = tabla.encabezados
+      .map((encabezado) => `<th>${escaparHtml(encabezado)}</th>`)
+      .join('')
+
+    const ventana = window.open('', '_blank')
+
+    if (!ventana) {
+      setMensaje('No se pudo abrir la ventana de impresión. Revise si el navegador bloqueó ventanas emergentes.')
+      return
+    }
+
+    ventana.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${escaparHtml(tabla.titulo)}</title>
+          <style>
+            @page {
+              size: letter portrait;
+              margin: 8mm;
+            }
+
+            * {
+              box-sizing: border-box;
+            }
+
+            html,
+            body {
+              width: 100%;
+              margin: 0;
+              padding: 0;
+              background: #ffffff;
+              color: #111827;
+              font-family: Arial, sans-serif;
+              font-size: 8px;
+            }
+
+            .contenedor {
+              width: 100%;
+            }
+
+            .encabezado {
+              text-align: center;
+              margin-bottom: 7px;
+              border-bottom: 1px solid #111827;
+              padding-bottom: 5px;
+            }
+
+            .empresa {
+              font-size: 13px;
+              font-weight: 700;
+              margin: 0;
+            }
+
+            .subtitulo {
+              font-size: 8px;
+              margin: 2px 0;
+            }
+
+            .titulo {
+              font-size: 10px;
+              font-weight: 700;
+              margin: 6px 0 2px 0;
+              text-transform: uppercase;
+            }
+
+            .meta {
+              display: flex;
+              justify-content: space-between;
+              gap: 8px;
+              font-size: 7.5px;
+              margin-bottom: 7px;
+            }
+
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              table-layout: fixed;
+            }
+
+            th,
+            td {
+              border: 1px solid #d1d5db;
+              padding: 2.8px 3px;
+              vertical-align: top;
+              word-break: break-word;
+              overflow-wrap: anywhere;
+              line-height: 1.2;
+            }
+
+            th {
+              background: #f3f4f6;
+              font-weight: 700;
+              text-align: left;
+            }
+
+            td:nth-child(n+4),
+            th:nth-child(n+4) {
+              text-align: right;
+            }
+
+            td:nth-child(1),
+            th:nth-child(1),
+            td:nth-child(2),
+            th:nth-child(2),
+            td:nth-child(3),
+            th:nth-child(3) {
+              text-align: left;
+            }
+
+            .pie {
+              margin-top: 7px;
+              font-size: 7px;
+              color: #374151;
+              display: flex;
+              justify-content: space-between;
+              border-top: 1px solid #d1d5db;
+              padding-top: 4px;
+            }
+
+            @media print {
+              body {
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+              }
+            }
+          </style>
+        </head>
+
+        <body>
+          <div class="contenedor">
+            <div class="encabezado">
+              <p class="empresa">Ferretería PROIS</p>
+              <p class="subtitulo">RTN 08011920048018 | contacto@prois.com</p>
+              <p class="titulo">${escaparHtml(tabla.titulo)}</p>
+            </div>
+
+            <div class="meta">
+              <div><strong>Registros mostrados:</strong> ${tabla.filas.length}</div>
+              <div><strong>Generado:</strong> ${escaparHtml(fechaGeneracion)}</div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>${encabezadosHtml}</tr>
+              </thead>
+              <tbody>
+                ${filasHtml}
+              </tbody>
+            </table>
+
+            <div class="pie">
+              <div>Reporte generado desde el Mini ERP Ferretería PROIS.</div>
+              <div>Hoja tamaño carta vertical.</div>
+            </div>
+          </div>
+
+          <script>
+            window.onload = function () {
+              window.focus();
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `)
+
+    ventana.document.close()
+  }
+
+  function BotonesExportacion() {
+    return (
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <button
+          type="button"
+          onClick={exportarExcel}
+          className="rounded-lg bg-emerald-700 px-5 py-3 font-semibold text-white hover:bg-emerald-600"
+        >
+          Exportar Excel
+        </button>
+
+        <button
+          type="button"
+          onClick={imprimirPDF}
+          className="rounded-lg bg-slate-700 px-5 py-3 font-semibold text-white hover:bg-slate-600"
+        >
+          Imprimir / PDF
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="text-black">
       <h2 className="text-2xl font-bold mb-4 text-black">Reportes</h2>
 
       <div className="bg-gray-50 border border-gray-300 rounded-2xl p-6 shadow-sm mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="w-full md:w-80">
             <label className="block mb-1 font-medium text-black">Seleccione un reporte</label>
             <select
               value={tipoReporte}
@@ -530,6 +921,8 @@ export default function ReportesTab() {
               <option value="notasCredito">Reporte de Notas de Crédito</option>
             </select>
           </div>
+
+          <BotonesExportacion />
         </div>
       </div>
 

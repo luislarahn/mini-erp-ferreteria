@@ -18,6 +18,7 @@ type Recibo = {
   descripcion: string
   valor_recibido: number
   estado: string
+  descripcion_aplicacion: string | null
 }
 
 const DATOS_EMPRESA = {
@@ -177,13 +178,13 @@ export default function ReciboImprimiblePage() {
     }
   }
 
- function imprimirRecibo() {
-  if (recibo?.secuencia_recibo) {
-    document.title = `Recibo ${recibo.secuencia_recibo}`
-  }
+  function imprimirRecibo() {
+    if (recibo?.secuencia_recibo) {
+      document.title = `Recibo ${recibo.secuencia_recibo}`
+    }
 
-  window.print()
-}
+    window.print()
+  }
 
   if (cargando) {
     return (
@@ -292,6 +293,9 @@ export default function ReciboImprimiblePage() {
                 <span className="font-bold">Fecha:</span>{' '}
                 {formatearFecha(recibo.fecha_recibo)}
               </p>
+              <p>
+                <span className="font-bold">Estado:</span> {recibo.estado || 'Emitido'}
+              </p>
             </div>
           </div>
 
@@ -342,6 +346,12 @@ export default function ReciboImprimiblePage() {
               <span className="font-bold">{recibo.nombre_cliente}</span> la cantidad de{' '}
               <span className="font-bold">{moneda(recibo.valor_recibido)}</span>, por el concepto
               descrito en este documento.
+              {recibo.descripcion_aplicacion && (
+                <>
+                  {' '}
+                  <span>{recibo.descripcion_aplicacion}</span>
+                </>
+              )}
             </p>
           </div>
 

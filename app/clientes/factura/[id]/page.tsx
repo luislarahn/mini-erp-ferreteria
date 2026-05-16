@@ -24,6 +24,7 @@ type Factura = {
   impuesto_total: number
   total_factura: number
   estado: string
+  descripcion_anulacion: string | null
 }
 
 type DetalleFactura = {
@@ -61,6 +62,13 @@ type AutorizacionFiscal = {
   fecha_inicio: string
   fecha_expiracion: string
   activo: boolean
+}
+
+type NotaCreditoAplicada = {
+  id_nota_credito: number
+  secuencia_fiscal: string
+  descripcion_aplicacion: string | null
+  estado: string
 }
 
 const DATOS_EMPRESA = {
@@ -192,6 +200,7 @@ export default function FacturaImprimiblePage() {
   const [detalle, setDetalle] = useState<DetalleFactura[]>([])
   const [correlativo, setCorrelativo] = useState<CorrelativoFiscal | null>(null)
   const [autorizacion, setAutorizacion] = useState<AutorizacionFiscal | null>(null)
+  const [notasAplicadas, setNotasAplicadas] = useState<NotaCreditoAplicada[]>([])
   const [cargando, setCargando] = useState(true)
   const [mensaje, setMensaje] = useState('')
 
@@ -226,8 +235,18 @@ export default function FacturaImprimiblePage() {
 
       if (detalleError) throw detalleError
 
+      const { data: notasData, error: notasError } = await supabase
+        .from('notas_credito')
+        .select('id_nota_credito, secuencia_fiscal, descripcion_aplicacion, estado')
+        .eq('id_factura_aplicada', idFactura)
+        .eq('estado', 'Aplicada')
+        .order('id_nota_credito', { ascending: true })
+
+      if (notasError) throw notasError
+
       setFactura(facturaData)
       setDetalle(detalleData || [])
+      setNotasAplicadas(notasData || [])
 
       if (facturaData?.id_correlativo) {
         const { data: correlativoData, error: correlativoError } = await supabase
@@ -261,12 +280,12 @@ export default function FacturaImprimiblePage() {
   }
 
   function imprimirFactura() {
-  if (factura?.secuencia_fiscal) {
-    document.title = `Factura ${factura.secuencia_fiscal}`
-  }
+    if (factura?.secuencia_fiscal) {
+      document.title = `Factura ${factura.secuencia_fiscal}`
+    }
 
-  window.print()
-}
+    window.print()
+  }
 
   if (cargando) {
     return (
@@ -305,6 +324,7 @@ export default function FacturaImprimiblePage() {
     return null
   }
 
+  const facturaAnulada = factura.estado === 'Anulada'
   const cai = autorizacion?.codigo_autorizacion || correlativo?.codigo_autorizacion || ''
   const rangoInicial = autorizacion
     ? formatearSecuencia(autorizacion.prefijo, autorizacion.valor_inicial, autorizacion.relleno)
@@ -337,6 +357,11 @@ export default function FacturaImprimiblePage() {
             padding: 7mm 8mm !important;
           }
 
+          .marca-anulada {
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+          }
+
           @page {
             size: letter;
             margin: 5mm;
@@ -361,177 +386,212 @@ export default function FacturaImprimiblePage() {
           </button>
         </div>
 
-        <div className="factura-print bg-white text-black rounded-2xl shadow-xl border border-slate-300 p-7 text-[11px] leading-tight">
-          {/* ENCABEZADO COMPACTO */}
-          <div className="mb-3 grid grid-cols-12 items-start gap-3">
-            <div className="col-span-7">
-              <h1 className="text-[20px] font-bold leading-none">{DATOS_EMPRESA.nombre}</h1>
-              <p className="mt-1 text-[11px]">{DATOS_EMPRESA.eslogan}</p>
-              <p>RTN {DATOS_EMPRESA.rtn}</p>
-              <p>
-                {DATOS_EMPRESA.direccion}, Tel {DATOS_EMPRESA.telefono}
-              </p>
-              <p>Correo: {DATOS_EMPRESA.correo}</p>
+        <div className="factura-print relative overflow-hidden bg-white text-black rounded-2xl shadow-xl border border-slate-300 p-7 text-[11px] leading-tight">
+          {facturaAnulada && (
+            <div
+              className="marca-anulada pointer-events-none absolute inset-0 z-0 flex items-center justify-center"
+              aria-hidden="true"
+            >
+              <div className="-rotate-45 text-[95px] font-black tracking-[0.25em] text-red-600 opacity-10">
+                ANULADA
+              </div>
+            </div>
+          )}
+
+          <div className="relative z-10">
+            {/* ENCABEZADO COMPACTO */}
+            <div className="mb-3 grid grid-cols-12 items-start gap-3">
+              <div className="col-span-7">
+                <h1 className="text-[20px] font-bold leading-none">{DATOS_EMPRESA.nombre}</h1>
+                <p className="mt-1 text-[11px]">{DATOS_EMPRESA.eslogan}</p>
+                <p>RTN {DATOS_EMPRESA.rtn}</p>
+                <p>
+                  {DATOS_EMPRESA.direccion}, Tel {DATOS_EMPRESA.telefono}
+                </p>
+                <p>Correo: {DATOS_EMPRESA.correo}</p>
+              </div>
+
+              <div className="col-span-5 text-right">
+                <h2 className="text-[18px] font-bold leading-none tracking-wide">FACTURA</h2>
+                <p className="mt-2">
+                  <span className="font-bold">No.:</span> {factura.secuencia_fiscal}
+                </p>
+                <p>
+                  <span className="font-bold">Fecha:</span>{' '}
+                  {formatearFecha(factura.fecha_factura)}
+                </p>
+                <p>
+                  <span className="font-bold">Estado:</span> {factura.estado || 'Emitida'}
+                </p>
+              </div>
             </div>
 
-            <div className="col-span-5 text-right">
-              <h2 className="text-[18px] font-bold leading-none tracking-wide">FACTURA</h2>
-              <p className="mt-2">
-                <span className="font-bold">No.:</span> {factura.secuencia_fiscal}
-              </p>
-              <p>
-                <span className="font-bold">Fecha:</span>{' '}
-                {formatearFecha(factura.fecha_factura)}
-              </p>
+            {/* DATOS DEL CLIENTE */}
+            <div className="mb-3 rounded border border-slate-300 px-3 py-2">
+              <div className="grid grid-cols-12 gap-x-3 gap-y-1">
+                <p className="col-span-8">
+                  <span className="font-bold">Cliente:</span> {factura.nombre_cliente}
+                </p>
+                <p className="col-span-4">
+                  <span className="font-bold">RTN:</span> {factura.rtn || '-'}
+                </p>
+                <p className="col-span-8">
+                  <span className="font-bold">Dirección:</span> {factura.direccion || '-'}
+                </p>
+                <p className="col-span-4">
+                  <span className="font-bold">Cod:</span>
+                </p>
+              </div>
             </div>
-          </div>
 
-          {/* DATOS DEL CLIENTE */}
-          <div className="mb-3 rounded border border-slate-300 px-3 py-2">
-            <div className="grid grid-cols-12 gap-x-3 gap-y-1">
-              <p className="col-span-8">
-                <span className="font-bold">Cliente:</span> {factura.nombre_cliente}
-              </p>
-              <p className="col-span-4">
-                <span className="font-bold">RTN:</span> {factura.rtn || '-'}
-              </p>
-              <p className="col-span-8">
-                <span className="font-bold">Dirección:</span> {factura.direccion || '-'}
-              </p>
-              <p className="col-span-4">
-                <span className="font-bold">Cod:</span>
-              </p>
-            </div>
-          </div>
-
-          {/* DETALLE */}
-          <div className="mb-3 min-h-[120px] overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-y border-black">
-                  <th className="py-1.5 text-left">Descripción</th>
-                  <th className="w-[55px] py-1.5 text-center">Cant.</th>
-                  <th className="w-[75px] py-1.5 text-right">Precio</th>
-                  <th className="w-[72px] py-1.5 text-center">Tipo Imp.</th>
-                  <th className="w-[75px] py-1.5 text-right">Impuesto</th>
-                  <th className="w-[80px] py-1.5 text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {detalle.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-4 text-center">
-                      No hay detalle para esta factura.
-                    </td>
+            {/* DETALLE */}
+            <div className="mb-3 min-h-[120px] overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-y border-black">
+                    <th className="py-1.5 text-left">Descripción</th>
+                    <th className="w-[55px] py-1.5 text-center">Cant.</th>
+                    <th className="w-[75px] py-1.5 text-right">Precio</th>
+                    <th className="w-[72px] py-1.5 text-center">Tipo Imp.</th>
+                    <th className="w-[75px] py-1.5 text-right">Impuesto</th>
+                    <th className="w-[80px] py-1.5 text-right">Total</th>
                   </tr>
-                ) : (
-                  detalle.map((item) => (
-                    <tr key={item.id_detalle} className="border-b border-slate-100">
-                      <td className="py-1.5 pr-2">{item.descripcion_producto}</td>
-                      <td className="py-1.5 text-center">{item.cantidad}</td>
-                      <td className="py-1.5 text-right">{moneda(item.precio_unitario)}</td>
-                      <td className="py-1.5 text-center">{item.tipo_impuesto || '-'}</td>
-                      <td className="py-1.5 text-right">{moneda(item.monto_impuesto_linea)}</td>
-                      <td className="py-1.5 text-right">{moneda(item.total_linea)}</td>
+                </thead>
+                <tbody>
+                  {detalle.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-4 text-center">
+                        No hay detalle para esta factura.
+                      </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    detalle.map((item) => (
+                      <tr key={item.id_detalle} className="border-b border-slate-100">
+                        <td className="py-1.5 pr-2">{item.descripcion_producto}</td>
+                        <td className="py-1.5 text-center">{item.cantidad}</td>
+                        <td className="py-1.5 text-right">{moneda(item.precio_unitario)}</td>
+                        <td className="py-1.5 text-center">{item.tipo_impuesto || '-'}</td>
+                        <td className="py-1.5 text-right">{moneda(item.monto_impuesto_linea)}</td>
+                        <td className="py-1.5 text-right">{moneda(item.total_linea)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-          {/* TOTALES Y LETRAS EN LA MISMA FRANJA */}
-          <div className="mb-3 grid grid-cols-12 gap-4">
-            <div className="col-span-7">
-              <div className="mb-3">
-                <p className="font-bold">Total en Letras:</p>
-                <p className="mt-1">{totalEnLetras(factura.total_factura)}</p>
+            {/* TOTALES Y LETRAS EN LA MISMA FRANJA */}
+            <div className="mb-3 grid grid-cols-12 gap-4">
+              <div className="col-span-7">
+                <div className="mb-3">
+                  <p className="font-bold">Total en Letras:</p>
+                  <p className="mt-1">{totalEnLetras(factura.total_factura)}</p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-1">
+                  <p>
+                    <span className="font-bold">Reg O/C Exenta:</span>
+                  </p>
+                  <p>
+                    <span className="font-bold">Reg Exonerados:</span>
+                  </p>
+                  <p>
+                    <span className="font-bold">No. Registro SAG:</span>
+                  </p>
+
+                  {facturaAnulada && factura.descripcion_anulacion && (
+                    <p className="mt-1 rounded border border-red-200 bg-red-50 px-2 py-1 text-[10px] text-red-800">
+                      <span className="font-bold">Motivo de anulación:</span>{' '}
+                      {factura.descripcion_anulacion}
+                    </p>
+                  )}
+
+                  {!facturaAnulada &&
+                    notasAplicadas.map((nota) => (
+                      <p
+                        key={nota.id_nota_credito}
+                        className="mt-1 rounded border border-cyan-200 bg-cyan-50 px-2 py-1 text-[10px] text-cyan-900"
+                      >
+                        <span className="font-bold">Nota de crédito aplicada:</span>{' '}
+                        {nota.descripcion_aplicacion ||
+                          `Nota de crédito ${nota.secuencia_fiscal} aplicada a esta factura.`}
+                      </p>
+                    ))}
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-1">
-                <p>
-                  <span className="font-bold">Reg O/C Exenta:</span>
-                </p>
-                <p>
-                  <span className="font-bold">Reg Exonerados:</span>
-                </p>
-                <p>
-                  <span className="font-bold">No. Registro SAG:</span>
-                </p>
-              </div>
-            </div>
+              <div className="col-span-5">
+                <div className="w-full text-[10.5px]">
+                  <div className="flex justify-between border-b border-slate-300 py-[2px]">
+                    <span>Sub Total:</span>
+                    <span>{moneda(factura.subtotal)}</span>
+                  </div>
 
-            <div className="col-span-5">
-              <div className="w-full text-[10.5px]">
-                <div className="flex justify-between border-b border-slate-300 py-[2px]">
-                  <span>Sub Total:</span>
-                  <span>{moneda(factura.subtotal)}</span>
-                </div>
+                  <div className="flex justify-between border-b border-slate-300 py-[2px]">
+                    <span>Importe Exonerado:</span>
+                    <span>{moneda(factura.importe_exonerado)}</span>
+                  </div>
 
-                <div className="flex justify-between border-b border-slate-300 py-[2px]">
-                  <span>Importe Exonerado:</span>
-                  <span>{moneda(factura.importe_exonerado)}</span>
-                </div>
+                  <div className="flex justify-between border-b border-slate-300 py-[2px]">
+                    <span>Importe Exento:</span>
+                    <span>{moneda(factura.importe_exento)}</span>
+                  </div>
 
-                <div className="flex justify-between border-b border-slate-300 py-[2px]">
-                  <span>Importe Exento:</span>
-                  <span>{moneda(factura.importe_exento)}</span>
-                </div>
+                  <div className="flex justify-between border-b border-slate-300 py-[2px]">
+                    <span>Importe Gravado 15%:</span>
+                    <span>{moneda(factura.importe_gravado_15)}</span>
+                  </div>
 
-                <div className="flex justify-between border-b border-slate-300 py-[2px]">
-                  <span>Importe Gravado 15%:</span>
-                  <span>{moneda(factura.importe_gravado_15)}</span>
-                </div>
+                  <div className="flex justify-between border-b border-slate-300 py-[2px]">
+                    <span>Importe Gravado 18%:</span>
+                    <span>{moneda(factura.importe_gravado_18)}</span>
+                  </div>
 
-                <div className="flex justify-between border-b border-slate-300 py-[2px]">
-                  <span>Importe Gravado 18%:</span>
-                  <span>{moneda(factura.importe_gravado_18)}</span>
-                </div>
+                  <div className="flex justify-between border-b border-slate-300 py-[2px]">
+                    <span>I.S.V. 15%:</span>
+                    <span>{moneda(factura.isv_15)}</span>
+                  </div>
 
-                <div className="flex justify-between border-b border-slate-300 py-[2px]">
-                  <span>I.S.V. 15%:</span>
-                  <span>{moneda(factura.isv_15)}</span>
-                </div>
+                  <div className="flex justify-between border-b border-slate-300 py-[2px]">
+                    <span>I.S.V. 18%:</span>
+                    <span>{moneda(factura.isv_18)}</span>
+                  </div>
 
-                <div className="flex justify-between border-b border-slate-300 py-[2px]">
-                  <span>I.S.V. 18%:</span>
-                  <span>{moneda(factura.isv_18)}</span>
-                </div>
-
-                <div className="mt-1 flex justify-between border-t border-black pt-1 text-[12px] font-bold">
-                  <span>TOTAL A PAGAR:</span>
-                  <span>{moneda(factura.total_factura)}</span>
+                  <div className="mt-1 flex justify-between border-t border-black pt-1 text-[12px] font-bold">
+                    <span>TOTAL A PAGAR:</span>
+                    <span>{moneda(factura.total_factura)}</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* INFORMACIÓN FISCAL Y COPIAS EN DOS COLUMNAS */}
-          <div className="mt-3 grid grid-cols-12 gap-4 border-t border-slate-300 pt-2">
-            <div className="col-span-7">
-              <p>
-                <span className="font-bold">C.A.I.:</span> {cai || '-'}
-              </p>
-              <p>
-                <span className="font-bold">Fecha Límite de Emisión:</span>{' '}
-                {formatearFecha(autorizacion?.fecha_expiracion)}
-              </p>
-              <p>
-                <span className="font-bold">Rango Autorizado:</span>{' '}
-                {rangoInicial || '-'} - al - {rangoFinal || '-'}
-              </p>
+            {/* INFORMACIÓN FISCAL Y COPIAS EN DOS COLUMNAS */}
+            <div className="mt-3 grid grid-cols-12 gap-4 border-t border-slate-300 pt-2">
+              <div className="col-span-7">
+                <p>
+                  <span className="font-bold">C.A.I.:</span> {cai || '-'}
+                </p>
+                <p>
+                  <span className="font-bold">Fecha Límite de Emisión:</span>{' '}
+                  {formatearFecha(autorizacion?.fecha_expiracion)}
+                </p>
+                <p>
+                  <span className="font-bold">Rango Autorizado:</span>{' '}
+                  {rangoInicial || '-'} - al - {rangoFinal || '-'}
+                </p>
+              </div>
+
+              <div className="col-span-5">
+                <p>Original: Cliente</p>
+                <p>Copia: Obligado Tributario</p>
+                <p>Triplicado: Archivo</p>
+                <p>Modalidad de Impresión: SFC en Red Fijo</p>
+              </div>
             </div>
 
-            <div className="col-span-5">
-              <p>Original: Cliente</p>
-              <p>Copia: Obligado Tributario</p>
-              <p>Triplicado: Archivo</p>
-              <p>Modalidad de Impresión: SFC en Red Fijo</p>
+            <div className="mt-3 text-center text-[11px] font-semibold">
+              La Factura es beneficio de todos, ¡Exíjala!
             </div>
-          </div>
-
-          <div className="mt-3 text-center text-[11px] font-semibold">
-            La Factura es beneficio de todos, ¡Exíjala!
           </div>
         </div>
       </div>

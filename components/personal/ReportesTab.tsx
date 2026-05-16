@@ -69,7 +69,6 @@ export default function ReportesTab() {
 
   async function cargarEmpleados() {
     setCargando(true)
-    // Intentar cargar con salario_base, si no existe usar salario
     const { data, error } = await supabase
       .from('empleados')
       .select(`id_empleado, nombre_completo, id_puesto, salario, puestos(nombre_puesto, departamento)`)
@@ -81,7 +80,6 @@ export default function ReportesTab() {
       return
     }
 
-    // Mapear los datos incluyendo salario_base (usando salario como fallback)
     const empleadosData = (data || []).map((e: any) => ({
       ...e,
       salario_base: e.salario_base !== undefined ? e.salario_base : e.salario
@@ -104,11 +102,9 @@ export default function ReportesTab() {
   }, [puestos])
 
   function obtenerSalario(empleado: Empleado) {
-    // Primero intentar usar salario_base del empleado (individual)
     if (empleado.salario_base !== undefined && empleado.salario_base !== null) {
       return empleado.salario_base
     }
-    // Fallback: usar salario_base del puesto (si existe)
     const puesto = resolverPuesto(empleado)
     return puesto?.salario_base ?? 0
   }
@@ -229,7 +225,7 @@ export default function ReportesTab() {
       const logoArrayBuffer = await logoBlob.arrayBuffer()
       const logoBuffer = new Uint8Array(logoArrayBuffer)
       const logoImageId = workbook.addImage({
-        // @ts-expect-error - ExcelJS accepts Uint8Array in browser environments
+        // @ts-expect-error - ExcelJS accepts Uint8Array in browser environments //NO BORRAR!!!!!!!!!!
         buffer: logoBuffer,
         extension: 'png',
       })
@@ -467,9 +463,6 @@ export default function ReportesTab() {
                   return
                 }
 
-                // 1. Preparar datos con nombres para incrementos_salariales
-                // Importante: NO incluir el campo 'id' (primary key autoincremental) para evitar conflictos
-                // Pero SÍ incluir id_empleado e id_puesto como foreign keys
                 const datosParaInsertar = salariosPorEmpleado.map((s) => {
                   const empleado = empleados.find(e => e.id_empleado === s.id_empleado)
                   const puesto = empleado ? resolverPuesto(empleado) : null
@@ -484,7 +477,7 @@ export default function ReportesTab() {
                   }
                 })
 
-                // 1. Insertar en incrementos_salariales
+        
                 const { data: insertData, error: errorInsert } = await supabase
                   .from('incrementos_salariales')
                   .insert(datosParaInsertar)
@@ -495,14 +488,13 @@ export default function ReportesTab() {
                   throw errorInsert
                 }
 
-                // 2. ACTUALIZAR SALARIO_BASE EN LA TABLA EMPLEADOS (individual por empleado)
                 const actualizacionesEmpleados = salariosPorEmpleado.map((s) => ({
                   id_empleado: s.id_empleado,
                   salario_base: s.salario_nuevo
                 }))
 
                 if (actualizacionesEmpleados.length > 0) {
-                  // Actualizar cada empleado individualmente
+
                   for (const emp of actualizacionesEmpleados) {
                     const { error: errorUpdateEmpleado } = await supabase
                       .from('empleados')
@@ -571,18 +563,18 @@ export default function ReportesTab() {
             {memorandosImprimir.map((memo) => (
   <div key={memo.id_empleado} style={{ pageBreakAfter: 'always', fontFamily: 'Arial, sans-serif', margin: 40 }}>
     
-    {/* Contenedor relativo que permite centrar el título y posicionar el logo a la par */}
+    {}
     <div style={{ 
       position: 'relative', 
       display: 'flex', 
       justifyContent: 'center', 
       alignItems: 'center', 
-      minHeight: '100px', // Asegura suficiente altura para el logo
+      minHeight: '100px', 
       marginBottom: 40,
       width: '100%' 
     }}>
       
-      {/* El logo se posiciona de forma absoluta a la izquierda sin empujar el título */}
+      {}
       <div style={{ position: 'absolute', left: 0, top: 0, textAlign: 'center' }}>
         <img 
           src={logoMemorando} 
@@ -591,7 +583,7 @@ export default function ReportesTab() {
         />
       </div>
 
-      {/* El título queda perfectamente centrado en la página */}
+      {}
       <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 'bold' }}>
         MEMORANDUM / {new Date().getFullYear()}
       </h3>

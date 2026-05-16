@@ -8,6 +8,7 @@ type Puesto = {
   nombre_puesto: string
   prefijo_puesto: string
   salario_base: number
+  departamento: string
 }
 
 type Empleado = {
@@ -23,7 +24,7 @@ type Empleado = {
   fecha_ingreso: string
   estado_laboral: 'Activo' | 'Despedido' | 'Retirado'
   id_puesto: number
-  puestos?: { nombre_puesto: string }[] | null
+  puestos?: { nombre_puesto: string, departamento: string }[] | null
 }
 
 function hoyLocal() {
@@ -89,6 +90,7 @@ export default function PersonalTab() {
   const [estadoCivil, setEstadoCivil] = useState<'Soltero' | 'Casado' | 'Union libre'>('Soltero')
   const [profesion, setProfesion] = useState('')
   const [puestoInput, setPuestoInput] = useState('')
+  const [departamento, setDepartamento] = useState('')
   const [salario, setSalario] = useState('')
   const [fechaIngreso, setFechaIngreso] = useState(hoyLocal())
   const [estadoLaboral, setEstadoLaboral] = useState<'Activo' | 'Despedido' | 'Retirado'>('Activo')
@@ -125,7 +127,7 @@ export default function PersonalTab() {
             fecha_ingreso,
             estado_laboral,
             id_puesto,
-            puestos(nombre_puesto)
+            puestos(nombre_puesto, departamento)
           `)
           .order('id_empleado', { ascending: false }),
       ])
@@ -138,6 +140,7 @@ export default function PersonalTab() {
         nombre_puesto: p.nombre_puesto,
         prefijo_puesto: p.prefijo_puesto,
         salario_base: Number(p.salario_base || 0),
+        departamento: p.departamento || '',
       }))
 
       const empleadosData: Empleado[] = (empleadosRes.data || []).map((e: any) => ({
@@ -178,6 +181,7 @@ export default function PersonalTab() {
     setEstadoCivil('Soltero')
     setProfesion('')
     setPuestoInput('')
+    setDepartamento('')
     setSalario('')
     setFechaIngreso(hoyLocal())
     setEstadoLaboral('Activo')
@@ -219,7 +223,7 @@ export default function PersonalTab() {
           fecha_ingreso,
           estado_laboral,
           id_puesto,
-          puestos(nombre_puesto)
+          puestos(nombre_puesto, departamento)
         `)
 
       if (dni && codigo) {
@@ -275,6 +279,7 @@ export default function PersonalTab() {
     setEstadoCivil(empleado.estado_civil)
     setProfesion(empleado.profesion || '')
     setPuestoInput(empleado.puestos?.[0]?.nombre_puesto ?? '')
+    setDepartamento(empleado.puestos?.[0]?.departamento ?? '')
     setSalario(String(empleado.salario || 0))
     setFechaIngreso(empleado.fecha_ingreso)
     setEstadoLaboral(empleado.estado_laboral)
@@ -340,6 +345,10 @@ export default function PersonalTab() {
 
     if (encontrado) {
       setSalario(String(Number(encontrado.salario_base || 0)))
+      setDepartamento(encontrado.departamento)
+    } else {
+      setSalario('')
+      setDepartamento('')
     }
   }
 
@@ -419,6 +428,7 @@ export default function PersonalTab() {
               nombre_puesto: puestoTexto,
               prefijo_puesto: prefijoNuevo,
               salario_base: salarioNumero,
+              departamento: departamento || 'Sin asignar',
             },
           ])
           .select()
@@ -606,6 +616,17 @@ export default function PersonalTab() {
             </div>
 
             <div>
+              <label className="block mb-1 text-black">Departamento:</label>
+              <input
+                type="text"
+                value={departamento}
+                readOnly
+                placeholder="Departamento asignado"
+                className="w-full rounded-lg bg-gray-100 border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
+              />
+            </div>
+
+            <div>
               <label className="block mb-1 text-black">Salario:</label>
               <input
                 type="number"
@@ -728,6 +749,7 @@ export default function PersonalTab() {
                   <th className="p-4 text-left border border-gray-200">Código</th>
                   <th className="p-4 text-left border border-gray-200">Nombre</th>
                   <th className="p-4 text-left border border-gray-200">Puesto</th>
+                  <th className="p-4 text-left border border-gray-200">Departamento</th>
                   <th className="p-4 text-right border border-gray-200">Salario</th>
                   <th className="p-4 text-center border border-gray-200">Ingreso</th>
                   <th className="p-4 text-center border border-gray-200">Estado</th>
@@ -739,13 +761,13 @@ export default function PersonalTab() {
               <tbody>
                 {cargando ? (
                   <tr>
-                    <td colSpan={accionesVisibles ? 8 : 7} className="p-6 text-center text-gray-600 bg-white">
+                    <td colSpan={accionesVisibles ? 9 : 8} className="p-6 text-center text-gray-600 bg-white">
                       Cargando empleados...
                     </td>
                   </tr>
                 ) : empleadosAMostrar.length === 0 ? (
                   <tr>
-                    <td colSpan={accionesVisibles ? 8 : 7} className="p-6 text-center text-gray-600 bg-white">
+                    <td colSpan={accionesVisibles ? 9 : 8} className="p-6 text-center text-gray-600 bg-white">
                       {empleadosEncontrados !== null
                         ? 'No se encontró ningún empleado con esos datos.'
                         : 'No hay empleados registrados todavía.'}
@@ -759,6 +781,9 @@ export default function PersonalTab() {
                       <td className="p-4 border border-gray-200">{empleado.nombre_completo}</td>
                       <td className="p-4 border border-gray-200">
                         {empleado.puestos?.[0]?.nombre_puesto || '-'}
+                      </td>
+                      <td className="p-4 border border-gray-200">
+                        {empleado.puestos?.[0]?.departamento || '-'}
                       </td>
                       <td className="p-4 border border-gray-200 text-right">
                         L {Number(empleado.salario || 0).toFixed(2)}

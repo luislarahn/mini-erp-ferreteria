@@ -8,6 +8,7 @@ type Puesto = {
   nombre_puesto: string
   prefijo_puesto: string
   salario_base: number
+  departamento: string
   created_at?: string
 }
 
@@ -16,6 +17,7 @@ export default function PuestosSalariosTab() {
   const [nombrePuesto, setNombrePuesto] = useState('')
   const [prefijoPuesto, setPrefijoPuesto] = useState('')
   const [salarioBase, setSalarioBase] = useState('')
+  const [departamento, setDepartamento] = useState('')
   const [cargando, setCargando] = useState(false)
   const [mensaje, setMensaje] = useState('')
   const [editandoId, setEditandoId] = useState<number | null>(null)
@@ -48,6 +50,7 @@ export default function PuestosSalariosTab() {
     setNombrePuesto('')
     setPrefijoPuesto('')
     setSalarioBase('')
+    setDepartamento('')
     setEditandoId(null)
   }
 
@@ -59,9 +62,15 @@ export default function PuestosSalariosTab() {
     const nombre = nombrePuesto.trim()
     const prefijo = prefijoPuesto.trim().toUpperCase()
     const salario = Number(salarioBase)
+    const dept = departamento.trim()
 
     if (!nombre) {
       setMensaje('Debe ingresar el nombre del puesto.')
+      return
+    }
+
+    if (!dept) {
+      setMensaje('Debe ingresar el departamento.')
       return
     }
 
@@ -82,6 +91,7 @@ export default function PuestosSalariosTab() {
         nombre_puesto: nombre,
         prefijo_puesto: prefijo,
         salario_base: salario,
+        departamento: dept,
       },
     ])
 
@@ -120,6 +130,7 @@ export default function PuestosSalariosTab() {
     setNombrePuesto(puesto.nombre_puesto)
     setPrefijoPuesto(puesto.prefijo_puesto)
     setSalarioBase(puesto.salario_base.toString())
+    setDepartamento(puesto.departamento)
     setMensaje('Puesto editado correctamente')
   }
 
@@ -129,9 +140,15 @@ export default function PuestosSalariosTab() {
     const nombre = nombrePuesto.trim()
     const prefijo = prefijoPuesto.trim().toUpperCase()
     const salario = Number(salarioBase)
+    const dept = departamento.trim()
 
     if (!nombre) {
       setMensaje('Debe ingresar el nombre del puesto.')
+      return
+    }
+
+    if (!dept) {
+      setMensaje('Debe ingresar el departamento.')
       return
     }
 
@@ -151,6 +168,7 @@ export default function PuestosSalariosTab() {
       nombre_puesto: nombre,
       prefijo_puesto: prefijo,
       salario_base: salario,
+      departamento: dept,
     }).eq('id_puesto', editandoId)
 
     if (error) {
@@ -184,6 +202,17 @@ export default function PuestosSalariosTab() {
                 value={nombrePuesto}
                 onChange={(e) => setNombrePuesto(e.target.value)}
                 placeholder="Ejemplo: Contabilidad"
+                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
+              />
+            </div>
+
+            <div>
+              <label className="block mb-1 text-black">Departamento:</label>
+              <input
+                type="text"
+                value={departamento}
+                onChange={(e) => setDepartamento(e.target.value)}
+                placeholder="Ejemplo: Finanzas"
                 className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
               />
             </div>
@@ -247,6 +276,7 @@ export default function PuestosSalariosTab() {
                 <tr className="bg-gray-100 text-black">
                   <th className="p-4 text-left border border-gray-200">ID</th>
                   <th className="p-4 text-left border border-gray-200">Puesto</th>
+                  <th className="p-4 text-left border border-gray-200">Departamento</th>
                   <th className="p-4 text-left border border-gray-200">Prefijo</th>
                   <th className="p-4 text-right border border-gray-200">Salario Base</th>
                   <th className="p-4 text-center border border-gray-200"></th>
@@ -255,13 +285,13 @@ export default function PuestosSalariosTab() {
               <tbody>
                 {cargando ? (
                   <tr>
-                    <td colSpan={5} className="p-6 text-center text-gray-600 bg-white">
+                    <td colSpan={6} className="p-6 text-center text-gray-600 bg-white">
                       Cargando puestos...
                     </td>
                   </tr>
                 ) : puestos.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="p-6 text-center text-gray-600 bg-white">
+                    <td colSpan={6} className="p-6 text-center text-gray-600 bg-white">
                       No hay puestos registrados todavía.
                     </td>
                   </tr>
@@ -270,6 +300,7 @@ export default function PuestosSalariosTab() {
                     <tr key={puesto.id_puesto} className="bg-white text-black">
                       <td className="p-4 border border-gray-200">{puesto.id_puesto}</td>
                       <td className="p-4 border border-gray-200">{puesto.nombre_puesto}</td>
+                      <td className="p-4 border border-gray-200">{puesto.departamento}</td>
                       <td className="p-4 border border-gray-200">{puesto.prefijo_puesto}</td>
                       <td className="p-4 border border-gray-200 text-right">
                         L {Number(puesto.salario_base || 0).toFixed(2)}

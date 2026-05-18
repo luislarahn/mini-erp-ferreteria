@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
+import { inicialUsuario, nombreUsuario, obtenerUsuarioSesion, type UsuarioSesion } from '../../lib/auth'
 
 const modulos = [
   {
@@ -40,13 +41,22 @@ const modulos = [
 export default function DashboardPage() {
   const router = useRouter()
   const [menuAbierto, setMenuAbierto] = useState(false)
+  const [usuarioActual, setUsuarioActual] = useState<UsuarioSesion | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    const auth = localStorage.getItem('miniERPAuth')
-    if (auth !== 'true') {
-      router.push('/')
-    }
+    const timer = window.setTimeout(() => {
+      const auth = localStorage.getItem('miniERPAuth')
+
+      if (auth !== 'true') {
+        router.push('/')
+        return
+      }
+
+      setUsuarioActual(obtenerUsuarioSesion())
+    }, 0)
+
+    return () => window.clearTimeout(timer)
   }, [router])
 
   useEffect(() => {
@@ -64,6 +74,7 @@ export default function DashboardPage() {
 
   function cerrarSesion() {
     localStorage.removeItem('miniERPAuth')
+    localStorage.removeItem('miniERPUsuario')
     router.push('/')
   }
 
@@ -155,9 +166,9 @@ export default function DashboardPage() {
                   fontWeight: 'bold',
                 }}
               >
-                A
+                {inicialUsuario(usuarioActual)}
               </span>
-              Admin
+              {nombreUsuario(usuarioActual)}
               <span style={{ fontSize: '12px', color: '#6B7280' }}>▼</span>
             </button>
 
@@ -190,7 +201,7 @@ export default function DashboardPage() {
                       fontSize: '14px',
                     }}
                   >
-                    Admin
+                    {nombreUsuario(usuarioActual)}
                   </div>
                   <div
                     style={{
@@ -199,7 +210,7 @@ export default function DashboardPage() {
                       marginTop: '4px',
                     }}
                   >
-                    Usuario del sistema
+                    {usuarioActual?.rol ?? 'Usuario del sistema'}
                   </div>
                 </div>
 

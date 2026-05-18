@@ -2,6 +2,17 @@
 
 import { FormEvent, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '../lib/supabase'
+
+type UsuarioLogin = {
+  id_usuario?: number
+  nombre?: string
+  correo?: string
+  rol?: string
+  estado?: string
+  contrasena?: string
+  password?: string
+}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -9,15 +20,62 @@ export default function LoginPage() {
   const [correo, setCorreo] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [cargando, setCargando] = useState(false)
 
-  function iniciarSesion(e: FormEvent) {
+  async function iniciarSesion(e: FormEvent) {
     e.preventDefault()
+    setError('')
+    setCargando(true)
 
-    if (correo === 'admin@proyecto.com' && password === 'admin1986') {
+    const correoLimpio = correo.trim().toLowerCase()
+
+    if (correoLimpio === 'admin@proyecto.com' && password === 'admin1986') {
       localStorage.setItem('miniERPAuth', 'true')
+      localStorage.setItem('miniERPUsuario', JSON.stringify({
+        nombre: 'Admin',
+        correo: correoLimpio,
+        rol: 'Administrador',
+      }))
       router.push('/dashboard')
-    } else {
-      setError('Credenciales incorrectas')
+      return
+    }
+
+    try {
+      const { data, error: errorConsulta } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('correo', correoLimpio)
+        .maybeSingle()
+
+      if (errorConsulta) throw errorConsulta
+
+      const usuario = data as UsuarioLogin | null
+      const contrasenaGuardada = usuario?.contrasena ?? usuario?.password
+
+      if (!usuario || usuario.estado === 'Inactivo' || contrasenaGuardada !== password) {
+        setError('Credenciales incorrectas o usuario inactivo')
+        setCargando(false)
+        return
+      }
+
+      await supabase
+        .from('usuarios')
+        .update({ ultima_sesion: new Date().toISOString() })
+        .eq('id_usuario', usuario.id_usuario)
+
+      localStorage.setItem('miniERPAuth', 'true')
+      localStorage.setItem('miniERPUsuario', JSON.stringify({
+        id_usuario: usuario.id_usuario,
+        nombre: usuario.nombre,
+        correo: usuario.correo,
+        rol: usuario.rol,
+      }))
+      router.push('/dashboard')
+    } catch (err) {
+      console.error('Error iniciando sesion:', err)
+
+      setError('No se pudo validar el usuario en Supabase')
+      setCargando(false)
     }
   }
 
@@ -114,6 +172,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
+            disabled={cargando}
             style={{
               width: '100%',
               padding: '12px',
@@ -121,11 +180,12 @@ export default function LoginPage() {
               color: '#FFFFFF',
               border: 'none',
               borderRadius: '8px',
-              cursor: 'pointer',
+              cursor: cargando ? 'not-allowed' : 'pointer',
               fontSize: '16px',
+              opacity: cargando ? 0.75 : 1,
             }}
           >
-            Iniciar sesión
+            {cargando ? 'Validando...' : 'Iniciar sesión'}
           </button>
         </form>
 

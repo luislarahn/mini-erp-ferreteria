@@ -7,16 +7,23 @@ import { useRouter } from "next/navigation";
 interface ReporteCompra {
   cantidad: number;
   precio_unitario: number;
-  subtotal: number;
-  producto: {
-    nombre: string;
+  porcentaje_impuesto: number;
+  subtotal_linea: number;
+  total_linea: number;
+  id_compra:number;
+
+  productos: {
+    descripcion: string;
   };
+
   compra: {
-    id: number;
-    fecha: string;
+    id_compra: number;
+    fecha_compra: string;
+    numero_documento: string;
     total: number;
+
     proveedor: {
-      nombre: string;
+      nombre_proveedor: string;
     };
   };
 }
@@ -62,28 +69,41 @@ export default function HistorialCompras() {
       }
     }, [])
 
-
-  const cargarReportes = async () => {
+   
+    const cargarReportes = async () => {
     const { data, error } = await supabase
       .from("detalle_compra")
       .select(`
         cantidad,
         precio_unitario,
-        subtotal,
-        producto(nombre),
+        porcentaje_impuesto,
+        subtotal_linea,
+        total_linea,
+        id_compra,
+  
+        productos(
+          descripcion
+        ),
+  
         compra(
-          id,
-          fecha,
+          id_compra,
+          numero_documento,
+          fecha_compra,
           total,
-          proveedor(nombre)
+  
+          proveedor(
+            nombre_proveedor
+          )
         )
       `)
-      .order("id_compra", { ascending: false });
-
+      .order("id_detalle_compra", { ascending: false });
+  
     if (error) {
-      console.log("Error cargando reportes:", error);
-      return;
+     console.log(error);
+     return;
     }
+
+    console.log(data);
 
     if (data) {
       setReportes(data as any);
@@ -98,44 +118,10 @@ export default function HistorialCompras() {
   };
 
 
-  // Estilos de la pagina --------------------------------
-  const inputStyle = {
-  padding: '10px',
-  borderRadius: '10px',
-  border: '1px solid #E5E7EB',
-  outline: 'none',
-};
-
-const th: React.CSSProperties = {
-    padding: '12px',
-    textAlign: 'left',
-    fontSize: '13px',
-};
-
-const td: React.CSSProperties = {
-    padding: '12px',
-    fontSize: '13px',
-    color: '#374151',
-};
-
-const btnEdit = {
-  marginRight: '6px',
-  backgroundColor: '#F59E0B',
-  border: 'none',
-  padding: '6px 8px',
-  borderRadius: '6px',
-  cursor: 'pointer',
-  color: '#fff',
-};
-
-const btnDelete = {
-  backgroundColor: '#EF4444',
-  border: 'none',
-  padding: '6px 8px',
-  borderRadius: '6px',
-  cursor: 'pointer',
-  color: '#fff',
-};
+// Estilos de la pagina --------------------------------
+  const inputStyle = { padding: '10px', borderRadius: '10px', border: '1px solid #E5E7EB',outline: 'none'};
+  const th: React.CSSProperties = {padding: '12px', textAlign: 'left', fontSize: '13px',};
+  const td: React.CSSProperties = {padding: '12px', fontSize: '13px', color: '#374151'};
 
 
   return (
@@ -209,7 +195,7 @@ const btnDelete = {
     {/* MAIN */}
     <main
       style={{
-        maxWidth: '1280px',
+        maxWidth: '1600px',
         margin: '0 auto',
         padding: '32px',
       }}
@@ -299,12 +285,17 @@ const btnDelete = {
           <thead>
             <tr style={{ backgroundColor: '#F3F4F6', color: '#0F766E' }}>
               <th style={th}>#</th>
-              <th style={th}>ID Compra</th>
+              <th style={th}>Id Compra</th>
+              <th style={th}>Num Documento</th>
               <th style={th}>Producto</th>
               <th style={th}>Cantidad</th>
+              <th style={th}>Precio Unitario</th>
+              <th style={th}>Impuesto</th>
+              <th style={th}>Subtotal</th>
+              <th style={th}>Total Línea</th>
+              <th style={th}>Total Final</th>
               <th style={th}>Proveedor</th>
               <th style={th}>Fecha</th>
-              <th style={th}>Total</th>
             </tr>
           </thead>
 
@@ -315,19 +306,17 @@ const btnDelete = {
                 style={{ borderBottom: '1px solid #E5E7EB' }}
               >
                 <td style={td}>{index + 1}</td>
-                <td style={td}>{r.compra.id}</td>
-                <td style={td}>{r.producto?.nombre}</td>
-                <td style={td}>{r.cantidad}</td>
-                <td style={td}>{r.compra.proveedor?.nombre}</td>
-                <td style={td}>
-                  {new Date(r.compra.fecha).toLocaleDateString()}
-                </td>
-                <td style={{ ...td, fontWeight: 'bold', color: '#16A34A' }}>
-                  {r.compra.total.toLocaleString("es-HN", {
-                    style: "currency",
-                    currency: "HNL",
-                  })}
-                </td>
+                <td style={{...td, textAlign:'left', paddingLeft:'30px'}}>{r.id_compra}</td>
+                <td style={td}>{r.compra.numero_documento}</td>
+                <td style={td}>{r.productos?.descripcion}</td>
+                <td style={{...td, textAlign:'left', paddingLeft:'30px'}}>{r.cantidad}</td>
+                <td style={td}>{formatear(r.precio_unitario)}</td>
+                <td style={td}>{r.porcentaje_impuesto}%</td>
+                <td style={td}>{formatear(r.subtotal_linea)}</td>
+                <td style={{...td, fontWeight: 'bold',color: '#16A34A'}}>{formatear(r.total_linea)}</td>
+                <td style={td}>{formatear(r.compra.total)}</td>
+                <td style={td}>{r.compra.proveedor?.nombre_proveedor}</td>
+                <td style={td}>{new Date(r.compra.fecha_compra).toLocaleDateString()}</td>
               </tr>
             ))}
           </tbody>
@@ -339,6 +328,7 @@ const btnDelete = {
           </div>
         )}
       </div>
+
     </main>
   </div>
 );

@@ -6,12 +6,14 @@ import Link from 'next/link';
 
 // Interfaz para proveedores--
 interface Proveedor {
-  id: number;
-  nombre: string;
+  id_proveedor: number;
+  nombre_proveedor: string;
+  nombre_contacto: string;
   direccion: string;
   telefono: string;
   correo: string;
-  estado: number;
+  rtn: string;
+  estado: string;
 }
 
 export default function ModuloProveedor() {
@@ -26,6 +28,8 @@ export default function ModuloProveedor() {
   const menuRef = useRef<HTMLDivElement | null>(null)
   const [menuAbierto, setMenuAbierto] = useState(false)
   const router = useRouter()
+  const [nombreContacto, setNombreContacto] = useState('');
+  const [rtn, setRtn] = useState('');
 
   function cerrarSesion() {
     localStorage.removeItem('miniERPAuth')
@@ -58,44 +62,85 @@ export default function ModuloProveedor() {
     }, [])
 
   const cargarProveedores = async () => {
-    const { data, error } = await supabase
-      .from('proveedor')
-      .select('*')
-      .eq("estado",1) // (Extra) con el soft delete, mostrar en estado 1 (Activo) o .delete()
-      .order('id', { ascending: false });
+  const { data, error } = await supabase
+    .from('proveedor')
+    .select('*')
+    .order('id_proveedor', { ascending: false });
 
-    if (!error && data) setProveedores(data as Proveedor[]);
-  };
+  if (!error && data) {
+    setProveedores(data as Proveedor[]);
+  }
+};
 
   const guardarProveedor = async (e: any) => {
     e.preventDefault();
 
     const datos = {
-      nombre,
+      nombre_proveedor: nombre,
+      nombre_contacto: nombreContacto,
       direccion,
       telefono,
       correo,
-      estado: 1
+      rtn,
+      estado: 'activo'
     };
 
-    // Verificar si ya existe el proveedor
-    const { data: proveedorExistente } = await supabase
-        .from("proveedor")
-        .select("id")
-        .ilike("nombre", nombre)
-        .eq("estado", 1)
-        .maybeSingle();
+    // Verificar si ya existen los siguientes campos en la DB ----------------------
+    // 1. Verificar nombre
+  const { data: nombreExistente } = await supabase
+    .from("proveedor")
+    .select("id_proveedor")
+    .eq("nombre_proveedor", nombre)
+    .limit(1);
 
-    if (proveedorExistente) {
-        alert("Ya existe un proveedor con ese nombre");
-        return;
-    }
+  if (nombreExistente && nombreExistente.length > 0) {
+    alert("El nombre del proveedor ya existe");
+    return;
+  }
 
+  // 2. Verificar RTN
+  const { data: rtnExistente } = await supabase
+    .from("proveedor")
+    .select("id_proveedor")
+    .eq("rtn", rtn)
+    .limit(1);
+
+  if (rtnExistente && rtnExistente.length > 0) {
+    alert("El RTN ya está registrado");
+    return;
+  }
+
+  // 3. Verificar teléfono
+  const { data: telefonoExistente } = await supabase
+    .from("proveedor")
+    .select("id_proveedor")
+    .eq("telefono", telefono)
+    .limit(1);
+
+  if (telefonoExistente && telefonoExistente.length > 0) {
+    alert("El teléfono ya está registrado");
+    return;
+  }
+
+  // 4. Verificar correo
+  const { data: correoExistente } = await supabase
+    .from("proveedor")
+    .select("id_proveedor")
+    .eq("correo", correo)
+    .limit(1);
+
+  if (correoExistente && correoExistente.length > 0) {
+    alert("El correo ya está registrado");
+    return;
+  }
+  // Verificar si ya existen los siguientes campos en la DB ----------------------
+
+    
     if (editandoId) {
       const { error } = await supabase
         .from('proveedor')
         .update(datos)
-        .eq('id', editandoId);
+        .eq('id_proveedor', editandoId);
 
       if (error) alert("Error al actualizar: " + error.message);
       else {
@@ -119,20 +164,43 @@ export default function ModuloProveedor() {
     if (confirm("¿Estás seguro de eliminar este proveedor?")) {
       const { error } = await supabase
         .from('proveedor')
-        .update({ estado: 0 }) //delete() Remplazado para un soft delete. (Si es necesario)
-        .eq('id', id);
+        .delete() 
+        .eq('id_proveedor', id);
 
       if (error) alert("Error al eliminar: " + error.message);
       else cargarProveedores();
     }
   };
 
+  const cambiarEstadoProveedor = async (
+  id_proveedor: number,
+  estadoActual: string ) => {
+
+  const nuevoEstado =
+    estadoActual === "activo"
+      ? "inactivo"
+      : "activo";
+  const { error } = await supabase
+    .from("proveedor")
+    .update({
+      estado: nuevoEstado
+    })
+    .eq("id_proveedor", id_proveedor);
+  if (error) {
+    alert("Error al cambiar estado");
+    return;
+  }
+  cargarProveedores();
+};
+
   const prepararEdicion = (prov: Proveedor) => {
-    setEditandoId(prov.id);
-    setNombre(prov.nombre);
+    setEditandoId(prov.id_proveedor);
+    setNombre(prov.nombre_proveedor);
+    setNombreContacto(prov.nombre_contacto);
     setDireccion(prov.direccion);
     setTelefono(prov.telefono);
     setCorreo(prov.correo);
+    setRtn(prov.rtn);
   };
 
   const limpiarFormulario = () => {
@@ -141,6 +209,8 @@ export default function ModuloProveedor() {
     setTelefono('');
     setCorreo('');
     setEditandoId(null);
+    setNombreContacto('');
+    setRtn('');
   };
 
 
@@ -255,7 +325,7 @@ const btnDelete = {
     {/* MAIN */}
     <main
       style={{
-        maxWidth: '1280px',
+        maxWidth: '1600px',
         margin: '0 auto',
         padding: '32px',
       }}
@@ -354,18 +424,26 @@ const btnDelete = {
           }}
         >
           <h3 style={{ marginTop: 0, color: '#0F766E' }}>
-            {editandoId ? 'Editar Proveedor' : 'Nuevo Proveedor'}
+            {editandoId ? 'Editando Proveedor' : 'Creando Proveedor'}
           </h3>
 
           <form onSubmit={guardarProveedor} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             
             <input
-              placeholder="Nombre"
+              placeholder="Nombre del proveedor"
               value={nombre}
               onChange={e => {
                 const v = e.target.value;
                 if (/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/.test(v)) setNombre(v);
               }}
+              style={inputStyle}
+              required
+            />
+
+            <input
+              placeholder="Nombre del contacto"
+              value={nombreContacto}
+              onChange={e => setNombreContacto(e.target.value)}
               style={inputStyle}
               required
             />
@@ -387,6 +465,13 @@ const btnDelete = {
               }}
               style={inputStyle}
               required
+            />
+            <input
+               placeholder="RTN"
+               value={rtn}
+               onChange={e => setRtn(e.target.value)}
+               style={inputStyle}
+               required
             />
 
             <input
@@ -444,6 +529,7 @@ const btnDelete = {
             borderRadius: '20px',
             boxShadow: '0 8px 20px rgba(0,0,0,0.05)',
             overflow: 'hidden',
+            overflowX: 'auto'
           }}
         >
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -451,24 +537,40 @@ const btnDelete = {
               <tr style={{ backgroundColor: '#F3F4F6', color: '#0F766E' }}>
                 <th style={th}>#</th>
                 <th style={th}>Nombre</th>
+                <th style={th}>Contacto</th>
                 <th style={th}>Dirección</th>
                 <th style={th}>Teléfono</th>
+                <th style={th}>RTN</th>
                 <th style={th}>Correo</th>
-                <th style={th}>Acciones</th>
+                <th style={th}>Estado</th>
+                <th style={{ ...th, width: '140px' }}>Acciones</th>
               </tr>
             </thead>
 
             <tbody>
               {proveedores.map((p, i) => (
-                <tr key={p.id} style={{ borderBottom: '1px solid #E5E7EB' }}>
+                <tr key={p.id_proveedor} style={{ borderBottom: '1px solid #E5E7EB' }}>
                   <td style={td}>{i + 1}</td>
-                  <td style={td}>{p.nombre}</td>
+                  <td style={td}>{p.nombre_proveedor}</td>
+                  <td style={td}>{p.nombre_contacto}</td>
                   <td style={td}>{p.direccion}</td>
                   <td style={td}>{p.telefono}</td>
+                  <td style={td}>{p.rtn}</td>
                   <td style={td}>{p.correo}</td>
-                  <td style={td}>
-                    <button onClick={() => prepararEdicion(p)} style={btnEdit}>✎</button>
-                    <button onClick={() => eliminarProveedor(p.id)} style={btnDelete}>✕</button>
+                  <td>
+                    <button onClick={() => cambiarEstadoProveedor(p.id_proveedor,p.estado)}
+                    style={{ marginLeft: '6px',backgroundColor: p.estado === 'activo' ? '#16A34A': '#DC2626',
+                    border: 'none',padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',color: '#fff',
+                    fontWeight: 'bold', fontSize: '12px',}}>
+                    {p.estado === 'activo' ? 'Activo' : 'Inactivo'}
+                    </button>
+                  </td>
+
+                  <td style={{ ...td, width: '120px' }}>
+                      <div style={{ display: 'flex', gap: '6px'}}>
+                        <button onClick={() => prepararEdicion(p)} style={btnEdit}>✎</button>
+                        <button onClick={() => eliminarProveedor(p.id_proveedor)} style={btnDelete}>✕</button>
+                      </div>
                   </td>
                 </tr>
               ))}

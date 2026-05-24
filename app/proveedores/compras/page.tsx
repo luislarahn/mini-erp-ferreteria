@@ -5,15 +5,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 interface Proveedor {
-  id: number;
-  nombre: string;
+  id_proveedor: number;
+  nombre_proveedor: string;
+  estado: string;
 }
 
 interface Producto {
-  id: number;
-  nombre: string;
+  id_producto: number;
+  descripcion: string;
   precio_compra: number;
-  stock: number;
+  stock_actual: number;
+  impuesto: number;
 }
 
 interface DetalleCompra {
@@ -21,7 +23,9 @@ interface DetalleCompra {
   nombre: string;
   cantidad: number;
   precio: number;
-  subtotal: number;
+  porcentaje_impuesto: number;
+  subtotal_linea: number;
+  total_linea: number;
 }
 
 export default function ComprasPage() {
@@ -39,6 +43,8 @@ export default function ComprasPage() {
   const menuRef = useRef<HTMLDivElement | null>(null)
   const [menuAbierto, setMenuAbierto] = useState(false)
   const router = useRouter()
+
+  const [filtroProducto, setFiltroProducto] = useState("");
 
 
   function cerrarSesion() {
@@ -86,13 +92,17 @@ export default function ComprasPage() {
   const cargarDatos = async () => {
     const { data: proveedoresData } = await supabase
       .from("proveedor")
-      .select("id, nombre")
-      .eq("estado", 1);
+      .select("id_proveedor, nombre_proveedor, estado")
+      .eq("estado", "activo");
 
     const { data: productosData } = await supabase
-      .from("producto")
-      .select("*")
-      .eq("estado", 1);
+      .from("productos")
+      .select(`
+      id_producto,
+      descripcion,
+      precio_compra,
+      stock_actual,
+      impuesto`);
 
     if (proveedoresData) setProveedores(proveedoresData);
     if (productosData) setProductos(productosData);
@@ -100,55 +110,76 @@ export default function ComprasPage() {
 
   // Agregar Productos -------------------------------------
   const agregarProducto = () => {
+
+    
     if (!productoSeleccionado || cantidad <= 0) {
       alert("Selecciona un producto válido");
       return;
     }
 
     const producto = productos.find(
-      (p) => p.id === Number(productoSeleccionado)
+      (p) => p.id_producto === Number(productoSeleccionado)
     );
-
+    
     if (!producto) return;
 
-    const subtotal = producto.precio_compra * cantidad;
+   const subtotal_linea = producto.precio_compra * cantidad;
 
-    const nuevoDetalle: DetalleCompra = {
-      id_producto: producto.id,
-      nombre: producto.nombre,
-      cantidad,
-      precio: producto.precio_compra,
-      subtotal,
+   const impuesto = subtotal_linea * (producto.impuesto / 100);
+
+   const total_linea = subtotal_linea + impuesto;
+
+   const nuevoDetalle: DetalleCompra = {
+    id_producto: producto.id_producto,
+    nombre: producto.descripcion,
+    cantidad,
+    precio: producto.precio_compra,
+    porcentaje_impuesto: producto.impuesto,
+    subtotal_linea,
+    total_linea,
+   };
+
+
+   // Evitar Productos duplicados --------------------------
+   const existe = detalles.find(
+     (d) => d.id_producto === producto.id_producto
+   );
+   
+   if (existe) {
+   
+     const nuevosDetalles = detalles.map((d) => {
+   
+       if (d.id_producto === producto.id_producto) {
+   
+         const nuevaCantidad = d.cantidad + cantidad;
+   
+         const base = nuevaCantidad * d.precio;
+   
+         const impuesto = base * (producto.impuesto / 100);
+   
+         const total = base + impuesto;
+   
+         return {
+           ...d,
+           cantidad: nuevaCantidad,
+           subtotal: total};
+       }
+   
+       return d;
+     });
+   
+     setDetalles(nuevosDetalles);
+   
+   } else {
+   
+     setDetalles([...detalles, nuevoDetalle]);
+   }
+   
+   setProductoSeleccionado("");
+   setCantidad(1);
     };
 
-    //setDetalles([...detalles, nuevoDetalle]);
-
-    // Evitar Productos duplicados --------------------------
-    const existe = detalles.find(
-        (d) => d.id_producto === producto.id
-    );
-
-    if (existe) {
-        const nuevosDetalles = detalles.map((d) =>
-            d.id_producto === producto.id ? {
-                ...d,
-              cantidad: d.cantidad + cantidad,
-              subtotal:
-              (d.cantidad + cantidad) * d.precio,
-            } : d
-        );
-
-        setDetalles(nuevosDetalles);
-    } else {
-     setDetalles([...detalles, nuevoDetalle]);
-    }
-    // Evitar Productos duplicados --------------------------
-
-
-    setProductoSeleccionado("");
-    setCantidad(1);
-  };
-
+  
   const eliminarDetalle = (index: number) => {
     const nuevosDetalles = [...detalles];
     nuevosDetalles.splice(index, 1);
@@ -156,11 +187,19 @@ export default function ComprasPage() {
   };
 
   const total = detalles.reduce(
-    (acc, item) => acc + item.subtotal,
-    0
-  );
+  (acc, item) => acc + item.total_linea, 0 );
 
   const guardarCompra = async () => {
+
+    const proveedor = proveedores.find(
+      p => p.id_proveedor === Number(proveedorSeleccionado)
+    );
+
+    if (proveedor?.estado !== "activo") {
+      alert("No puedes comprar a un proveedor inactivo");
+      return;
+    }
+
     if (!proveedorSeleccionado) {
       alert("Selecciona un proveedor");
       return;
@@ -171,17 +210,36 @@ export default function ComprasPage() {
       return;
     }
 
+    const subtotal = detalles.reduce((acc, item) => {
+    const base = item.precio * item.cantidad;
+    return acc + base;
+    }, 0);
+
+    const impuesto_total = detalles.reduce((acc, item) => {
+    const base = item.precio * item.cantidad;
+    const impuesto = base * 0.15; // o item.impuesto si lo tienes guardado
+    return acc + impuesto;
+    }, 0);
+
+    const total_final = subtotal + impuesto_total;
+
+    const numero_documento = `C-${Date.now()}`;
+
     // 1. Crear compra ---------------------------------------------
     const { data: compraData, error: compraError } = await supabase
-      .from("compra")
-      .insert([
-        {
-          id_proveedor: proveedorSeleccionado,
-          total: total,
-        },
-      ])
-      .select()
-      .single();
+   .from("compra")
+   .insert([{
+       id_proveedor: proveedorSeleccionado,
+       numero_documento,
+       subtotal,
+       impuesto_total,
+       total: total_final,
+       estado: "completada",
+       fecha_compra: new Date().toISOString(),
+     },
+   ])
+   .select()
+   .single();
 
     if (compraError) {
       alert("Error al registrar compra");
@@ -191,23 +249,53 @@ export default function ComprasPage() {
 
     // 2. Crear detalles ---------------------------------------------
     const detallesInsert = detalles.map((d) => ({
-      id_compra: compraData.id,
+      id_compra: compraData.id_compra,
       id_producto: d.id_producto,
       cantidad: d.cantidad,
       precio_unitario: d.precio,
-      subtotal: d.subtotal,
+      porcentaje_impuesto: d.porcentaje_impuesto,
+      subtotal_linea: d.subtotal_linea,
+      total_linea: d.total_linea,
     }));
 
     const { error: detalleError } = await supabase
       .from("detalle_compra")
       .insert(detallesInsert);
-
+      
     if (detalleError) {
       alert("Error al registrar detalles");
       console.log(detalleError);
       return;
     }
 
+    // 3. Actualizar stock de productos -----------------------------
+    for (const d of detalles) {
+    
+      // Obtener stock actual
+      const productoActual = productos.find(
+        (p) => p.id_producto === d.id_producto
+      );
+    
+      if (!productoActual) continue;
+    
+      const nuevoStock =
+        productoActual.stock_actual + d.cantidad;
+    
+      const { error: stockError } = await supabase
+        .from("productos")
+        .update({
+          stock_actual: nuevoStock
+        })
+        .eq("id_producto", d.id_producto);
+    
+      if (stockError) {
+        console.log(stockError);
+        alert("Error al actualizar stock");
+        return;
+      }
+    }
+
+    // Confirmar el registro del producto
     alert("Compra registrada correctamente");
 
     setDetalles([]);
@@ -215,53 +303,13 @@ export default function ComprasPage() {
   };
 
 // Estilos de la pagina --------------------------------
-  const inputStyle = {
-  padding: '10px',
-  borderRadius: '10px',
-  border: '1px solid #E5E7EB',
-  outline: 'none',
-};
-
-const th: React.CSSProperties = {
-    padding: '12px',
-    textAlign: 'left',
-    fontSize: '13px',
-};
-
-const td: React.CSSProperties = {
-    padding: '12px',
-    fontSize: '13px',
-    color: '#374151',
-};
-
-const btnEdit = {
-  marginRight: '6px',
-  backgroundColor: '#F59E0B',
-  border: 'none',
-  padding: '6px 8px',
-  borderRadius: '6px',
-  cursor: 'pointer',
-  color: '#fff',
-};
-
-const btnDelete = {
-  backgroundColor: '#EF4444',
-  border: 'none',
-  padding: '6px 8px',
-  borderRadius: '6px',
-  cursor: 'pointer',
-  color: '#fff',
-};
+  const inputStyle = { padding: '10px', borderRadius: '10px', border: '1px solid #E5E7EB',outline: 'none'};
+  const th: React.CSSProperties = {padding: '12px', textAlign: 'left', fontSize: '13px',};
+  const td: React.CSSProperties = {padding: '12px', fontSize: '13px', color: '#374151'};
 
   return (
-  <div
-    style={{
-      minHeight: '100vh',
-      backgroundColor: '#F3F4F6',
-      fontFamily: 'Arial, sans-serif',
-      color: '#1F2937',
-    }}
-  >
+  <div style={{minHeight: '100vh', backgroundColor: '#F3F4F6', fontFamily: 'Arial, sans-serif',color: '#1F2937',}}>
+
     {/* HEADER (igual al sistema PROIS) ------------------------- */}
     <header style={{ backgroundColor: '#FFFFFF', borderBottom: '1px solid #E5E7EB', padding: '20px 32px', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}>
         <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
@@ -323,7 +371,7 @@ const btnDelete = {
     {/* MAIN */}
     <main
       style={{
-        maxWidth: '1280px',
+        maxWidth: '1600px',
         margin: '0 auto',
         padding: '32px',
       }}
@@ -421,43 +469,60 @@ const btnDelete = {
         >
           <h3 style={{ marginTop: 0, color: '#0F766E' }}>Nueva Compra</h3><br />
 
-          {/* PROVEEDOR */}
+          {/* SELECCIONAR PROVEEDOR */}
           <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '12px', color: '#6B7280' }}>Proveedor </label>
+            <label style={{ fontSize: '12px', color: '#6B7280' }}>Proveedor </label><br />
+
             <select
               value={proveedorSeleccionado}
               onChange={(e) => setProveedorSeleccionado(e.target.value)}
               style={inputStyle}
             >
-              <option value="">Seleccionar</option>
+              <option disabled value="">Seleccionar proveedor</option>
               {proveedores.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre}
+                <option key={p.id_proveedor} value={p.id_proveedor}>
+                   {p.nombre_proveedor} ({p.estado})
+
                 </option>
               ))}
             </select>
+
           </div>
 
           {/* PRODUCTO */}
-          <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '12px', color: '#6B7280' }}>Producto </label>
-            <select
-              value={productoSeleccionado}
-              onChange={(e) => setProductoSeleccionado(e.target.value)}
-              style={inputStyle}
-            >
-              <option value="">Seleccionar</option>
-              {productos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre}
+          <div style={{ marginBottom: '12px'}}>
+
+            <label style={{ fontSize: '12px', color: '#6B7280', display: 'block', marginBottom: '8px' }}>Producto </label>
+               
+            <input
+              type="text"
+              placeholder="Buscar producto..."
+              value={filtroProducto}
+              onChange={(e) => setFiltroProducto(e.target.value)}
+              style={{ ...inputStyle, marginBottom: '12px', display: 'block' }} />
+           
+              <select
+                value={productoSeleccionado}
+                onChange={(e) => setProductoSeleccionado(e.target.value)}
+                style={{ ...inputStyle, display: 'block' }}>
+                <option value="">
+                  {filtroProducto ? "Ver productos encontrados" : "Seleccionar producto"}
                 </option>
-              ))}
-            </select>
+
+                {productos
+                .filter((p) =>p.descripcion.toLowerCase().includes(filtroProducto.toLowerCase()))
+                .map((p) => (
+                    <option key={p.id_producto} value={p.id_producto}> 
+                      {p.descripcion} (Stock: {p.stock_actual})
+                    </option>
+                ))}
+              </select>
           </div>
+
 
           {/* CANTIDAD */}
           <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '12px', color: '#6B7280' }}>Cantidad </label>
+            <label style={{ fontSize: '12px', color: '#6B7280' }}>Cantidad </label><br />
             <input
               type="number"
               value={cantidad}
@@ -520,7 +585,7 @@ const btnDelete = {
                   <td style={td}>{d.nombre}</td>
                   <td style={td}>{d.cantidad}</td>
                   <td style={td}>L {d.precio}</td>
-                  <td style={td}>L {d.subtotal}</td>
+                  <td style={td}>L {d.total_linea}</td>
                   <td style={td}>
                     <button
                       onClick={() => eliminarDetalle(i)}
@@ -541,6 +606,13 @@ const btnDelete = {
             </tbody>
           </table>
 
+
+          {detalles.length === 0 && (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#9CA3AF' }}>
+            No hay productos agregados
+          </div>)}
+
+
           {/* TOTAL */}
           <div
             style={{
@@ -555,28 +627,17 @@ const btnDelete = {
 
             <button
               onClick={guardarCompra}
+              disabled={detalles.length === 0}
               style={{
                 padding: '10px 16px',
-                backgroundColor: detalles.length === 0 ? '#16A34A':'#374151' ,
+                backgroundColor: detalles.length === 0 ? '#374151':'#22C55E' ,
                 color: '#FFF',
                 border: 'none',
                 borderRadius: '10px',
                 fontWeight: 'bold',
                 cursor: 'pointer',
               }}
-
-            onMouseOver={(e) => {
-                (e.target as HTMLButtonElement).style.backgroundColor =
-                detalles.length === 0 ? '#374151' : '#22C55E';
-            }}
-
-            onMouseOut={(e) => {
-                (e.target as HTMLButtonElement).style.backgroundColor =
-                detalles.length === 0 ? '#4B5563' : '#16A34A';
-            }}
-            >
-                
-              Registrar Compra
+            > Registrar Compra
             </button>
           </div>
         </div>

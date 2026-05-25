@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 interface Proveedor {
   id_proveedor: number;
@@ -18,7 +18,7 @@ interface Producto {
   impuesto: number;
 }
 
-interface DetalleCompra {
+interface DetalleOrden {
   id_producto: number;
   nombre: string;
   cantidad: number;
@@ -28,27 +28,40 @@ interface DetalleCompra {
   total_linea: number;
 }
 
-export default function ComprasPage() {
+export default function OrdenesPage() {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
+
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState("");
-  const [detalles, setDetalles] = useState<DetalleCompra[]>([]);
+
+  const [productoSeleccionado, setProductoSeleccionado] = useState("");
+  const [cantidad, setCantidad] = useState(1);
+
+  const [detalles, setDetalles] = useState<DetalleOrden[]>([]);
 
    //Nuevos
   const menuRef = useRef<HTMLDivElement | null>(null)
   const [menuAbierto, setMenuAbierto] = useState(false)
   const router = useRouter()
-  const searchParams = useSearchParams();
-  const ordenId = searchParams.get("orden");
 
- const [numeroOrden, setNumeroOrden] = useState("");
- const [nombreProveedor, setNombreProveedor] = useState("");
+  const [filtroProducto, setFiltroProducto] = useState("");
+
 
   function cerrarSesion() {
     localStorage.removeItem('miniERPAuth')
     router.push('/')
   }
- 
+
+
+    //Formatear moneda
+    const formatearMoneda = (valor: number) => {
+     return valor.toLocaleString("es-HN", {
+      style: "currency",
+      currency: "HNL",
+     });
+    };
+
+
   useEffect(() => {
     cargarDatos();
   }, []);
@@ -74,138 +87,6 @@ export default function ComprasPage() {
       }
     }, [])
 
-  useEffect(() => {
-  if (!ordenId) return;
-
-  cargarOrden();
-}, [ordenId]);
-
-
-
-   // cargar orden------------------------------------------
-   const cargarOrden = async () => {
-
-  // =====================================
-  // OBTENER ORDEN
-  // =====================================
-  const { data: ordenData, error: ordenError } = await supabase
-    .from("orden_compra")
-    .select(`
-      numero_orden,
-      id_proveedor
-    `)
-    .eq("id_orden_compra", ordenId)
-    .single();
-
-  if (ordenError) {
-    console.log(ordenError);
-    return;
-  }
-
-  // =====================================
-  // OBTENER PROVEEDOR
-  // =====================================
-  const { data: proveedorData, error: proveedorError } = await supabase
-    .from("proveedor")
-    .select(`
-      id_proveedor,
-      nombre_proveedor,
-      estado
-    `)
-    .eq("id_proveedor", ordenData.id_proveedor)
-    .single();
-
-  if (proveedorError) {
-    console.log(proveedorError);
-    return;
-  }
-
-  // =====================================
-  // SETEAR DATOS
-  // =====================================
-  setProveedorSeleccionado(
-    proveedorData.id_proveedor.toString()
-  );
-
-  setNombreProveedor(
-    proveedorData.nombre_proveedor
-  );
-
-  setNumeroOrden(
-    ordenData.numero_orden
-  );
-
-  // =====================================
-  // OBTENER DETALLES
-  // =====================================
-  const { data: detallesData, error: detallesError } = await supabase
-    .from("detalle_orden_compra")
-    .select(`
-      id_producto,
-      cantidad,
-      precio_unitario,
-      porcentaje_impuesto,
-      subtotal_linea,
-      total_linea
-    `)
-    .eq("id_orden_compra", ordenId);
-
-  if (detallesError) {
-    console.log(detallesError);
-    return;
-  }
-
-  // =====================================
-  // OBTENER PRODUCTOS
-  // =====================================
-  const idsProductos = detallesData.map(
-    (d) => d.id_producto
-  );
-
-  const { data: productosData, error: productosError } = await supabase
-    .from("productos")
-    .select(`
-      id_producto,
-      descripcion
-    `)
-    .in("id_producto", idsProductos);
-
-  if (productosError) {
-    console.log(productosError);
-    return;
-  }
-
-  // =====================================
-  // MAPEAR DETALLES
-  // =====================================
-  const detallesMapeados = detallesData.map((d) => {
-
-    const producto = productosData.find(
-      (p) => p.id_producto === d.id_producto
-    );
-
-    return {
-      id_producto: d.id_producto,
-
-      nombre: producto?.descripcion || "Producto",
-
-      cantidad: d.cantidad,
-
-      precio: d.precio_unitario,
-
-      porcentaje_impuesto: d.porcentaje_impuesto,
-
-      subtotal_linea: d.subtotal_linea,
-
-      total_linea: d.total_linea,
-    };
-  });
-
-  setDetalles(detallesMapeados);
-};
-
-
-
 
   // Cargar Datos ------------------------------------------
   const cargarDatos = async () => {
@@ -227,6 +108,80 @@ export default function ComprasPage() {
     if (productosData) setProductos(productosData);
   };
 
+  // Agregar Productos -------------------------------------
+  const agregarProducto = () => {
+
+    
+    if (!productoSeleccionado || cantidad <= 0) {
+      alert("Selecciona un producto válido");
+      return;
+    }
+
+    const producto = productos.find(
+      (p) => p.id_producto === Number(productoSeleccionado)
+    );
+    
+    if (!producto) return;
+
+   const subtotal_linea = producto.precio_compra * cantidad;
+
+   const impuesto = subtotal_linea * (producto.impuesto / 100);
+
+   const total_linea = subtotal_linea + impuesto;
+
+   const nuevoDetalle: DetalleOrden = {
+    id_producto: producto.id_producto,
+    nombre: producto.descripcion,
+    cantidad,
+    precio: producto.precio_compra,
+    porcentaje_impuesto: producto.impuesto,
+    subtotal_linea,
+    total_linea,
+   };
+
+
+   // Evitar Productos duplicados --------------------------
+   const existe = detalles.find(
+     (d) => d.id_producto === producto.id_producto
+   );
+   
+   if (existe) {
+   
+     const nuevosDetalles = detalles.map((d) => {
+   
+       if (d.id_producto === producto.id_producto) {
+   
+         const nuevaCantidad = d.cantidad + cantidad;
+   
+         const base = nuevaCantidad * d.precio;
+   
+         const impuesto = base * (producto.impuesto / 100);
+   
+         const total = base + impuesto;
+   
+         return {
+            ...d,
+            cantidad: nuevaCantidad,
+            subtotal_linea: base,
+            total_linea: total,
+        };
+       }
+   
+       return d;
+     });
+   
+     setDetalles(nuevosDetalles);
+   
+   } else {
+   
+     setDetalles([...detalles, nuevoDetalle]);
+   }
+   
+   setProductoSeleccionado("");
+   setCantidad(1);
+    };
+
+  
   const eliminarDetalle = (index: number) => {
     const nuevosDetalles = [...detalles];
     nuevosDetalles.splice(index, 1);
@@ -236,124 +191,94 @@ export default function ComprasPage() {
   const total = detalles.reduce(
   (acc, item) => acc + item.total_linea, 0 );
 
-  const guardarCompra = async () => {
 
-    const proveedor = proveedores.find(
-      p => p.id_proveedor === Number(proveedorSeleccionado)
-    );
+  // Guardar orden --------------------------------------
+  const guardarOrden = async () => {
+     const proveedor = proveedores.find(
+    p => p.id_proveedor === Number(proveedorSeleccionado)
+  );
 
-    if (proveedor?.estado !== "activo") {
-      alert("No puedes comprar a un proveedor inactivo");
-      return;
-    }
+  if (proveedor?.estado !== "activo") {
+    alert("Proveedor inactivo");
+    return;
+  }
 
-    if (!proveedorSeleccionado) {
-      alert("Selecciona un proveedor");
-      return;
-    }
+  if (!proveedorSeleccionado) {
+    alert("Selecciona un proveedor");
+    return;
+  }
 
-    if (detalles.length === 0) {
-      alert("Agrega productos");
-      return;
-    }
+  if (detalles.length === 0) {
+    alert("Agrega productos");
+    return;
+  }
 
-    const subtotal = detalles.reduce((acc, item) => {
-    const base = item.precio * item.cantidad;
-    return acc + base;
-    }, 0);
+  const subtotal = detalles.reduce(
+    (acc, item) => acc + item.subtotal_linea,
+    0
+  );
 
-    const impuesto_total = detalles.reduce((acc, item) => {
-    const base = item.precio * item.cantidad;
-    const impuesto = base * 0.15; // o item.impuesto si lo tienes guardado
-    return acc + impuesto;
-    }, 0);
+  const impuesto = detalles.reduce(
+    (acc, item) =>
+      acc + (item.total_linea - item.subtotal_linea),
+    0
+  );
 
-    const total_final = subtotal + impuesto_total;
+  const total = subtotal + impuesto;
 
-    const numero_documento = `C-${Date.now()}`;
+  const numero_orden = `OC-${Date.now()}`;
 
-    // 1. Crear compra ---------------------------------------------
-    const { data: compraData, error: compraError } = await supabase
-   .from("compra")
-   .insert([{
-       id_proveedor: proveedorSeleccionado,
-       numero_documento,
-       subtotal,
-       impuesto_total,
-       total: total_final,
-       estado: "completada",
-       fecha_compra: new Date().toISOString(),
-     },
-   ])
-   .select()
-   .single();
+  // 1. GUARDAR ORDEN
+  const { data: ordenData, error: ordenError } = await supabase
+    .from("orden_compra")
+    .insert([
+      {
+        numero_orden,
+        id_proveedor: proveedorSeleccionado,
+        subtotal,
+        impuesto,
+        total,
+        estado: "emitida",
+      },
+    ])
+    .select()
+    .single();
 
-    if (compraError) {
-      alert("Error al registrar compra");
-      console.log(compraError);
-      return;
-    }
+  if (ordenError) {
+    console.log(ordenError);
+    alert("Error al generar orden");
+    return;
+  }
 
-    // 2. Crear detalles ---------------------------------------------
-    const detallesInsert = detalles.map((d) => ({
-      id_compra: compraData.id_compra,
-      id_producto: d.id_producto,
-      cantidad: d.cantidad,
-      precio_unitario: d.precio,
-      porcentaje_impuesto: d.porcentaje_impuesto,
-      subtotal_linea: d.subtotal_linea,
-      total_linea: d.total_linea,
-    }));
+  // 2. GUARDAR DETALLES
+  const detallesInsert = detalles.map((d) => ({
+    id_orden_compra: ordenData.id_orden_compra,
+    id_producto: d.id_producto,
+    cantidad: d.cantidad,
+    precio_unitario: d.precio,
+    porcentaje_impuesto: d.porcentaje_impuesto,
+    subtotal_linea: d.subtotal_linea,
+    total_linea: d.total_linea,
+  }));
 
-    const { error: detalleError } = await supabase
-      .from("detalle_compra")
-      .insert(detallesInsert);
-      
-    if (detalleError) {
-      alert("Error al registrar detalles");
-      console.log(detalleError);
-      return;
-    }
+  const { error: detalleError } = await supabase
+    .from("detalle_orden_compra")
+    .insert(detallesInsert);
 
-    // 3. Actualizar stock de productos -----------------------------
-    for (const d of detalles) {
+  if (detalleError) {
+    console.log(detalleError);
+    alert("Error al registrar detalles");
+    return;
+  }
+
+  alert("Orden generada correctamente");
+
+  setDetalles([]);
+  setProveedorSeleccionado("");
     
-      // Obtener stock actual
-      const productoActual = productos.find(
-        (p) => p.id_producto === d.id_producto
-      );
-    
-      if (!productoActual) continue;
-    
-      const nuevoStock =
-        productoActual.stock_actual + d.cantidad;
-    
-      const { error: stockError } = await supabase
-        .from("productos")
-        .update({
-          stock_actual: nuevoStock
-        })
-        .eq("id_producto", d.id_producto);
-    
-      if (stockError) {
-        console.log(stockError);
-        alert("Error al actualizar stock");
-        return;
-      }
-    }
-
-  await supabase
-  .from("orden_compra")
-  .update({
-    estado: "completada"
-  })
-  .eq("id_orden_compra", ordenId);
-
-  alert("Compra registrada correctamente");
-
-  router.push("/proveedores/compras/historial");
   };
-  
+
+
 
 // Estilos de la pagina --------------------------------
   const inputStyle = { padding: '10px', borderRadius: '10px', border: '1px solid #E5E7EB',outline: 'none'};
@@ -422,12 +347,7 @@ export default function ComprasPage() {
     {/* HEADER (igual al sistema PROIS) ------------------------- */}
 
     {/* MAIN */}
-    <main
-      style={{
-        maxWidth: '1600px',
-        margin: '0 auto',
-        padding: '32px',
-      }}
+    <main style={{ maxWidth: '1600px', margin: '0 auto', padding: '32px', }}
     >
      {/* LINKS */}
         <a href="/dashboard" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '10px', color: '#374151', textDecoration: 'none', fontWeight: 'bold', backgroundColor: '#FFFFFF', padding: '12px 16px', borderRadius: '12px', border: '1px solid #E5E7EB' }}>
@@ -454,7 +374,7 @@ export default function ComprasPage() {
             href="/proveedores/ordenes"
             style={{
               padding: '10px 14px',
-              backgroundColor: '#374151',
+              backgroundColor: '#0F766E',
               color: '#FFFFFF',
               borderRadius: '10px',
               textDecoration: 'none',
@@ -481,7 +401,7 @@ export default function ComprasPage() {
             href="/proveedores/compras"
             style={{
               padding: '10px 14px',
-              backgroundColor: '#0F766E',
+              backgroundColor: '#374151',
               color: '#FFFFFF',
               borderRadius: '10px',
               textDecoration: 'none',
@@ -489,7 +409,7 @@ export default function ComprasPage() {
               fontWeight: 'bold',
             }}
           >
-            Compras
+            Ir a Compras
           </a>
 
           <a
@@ -520,12 +440,123 @@ export default function ComprasPage() {
         }}
       >
         <h2 style={{ margin: 0, fontSize: '26px', color: '#111827' }}>
-          Compra por Orden
+          Orden de Compra
         </h2>
         <p style={{ marginTop: '8px', color: '#6B7280', fontSize: '14px' }}>
-          Proveedor: {nombreProveedor} | Orden: {numeroOrden}
+          Genera órdenes de compra para proveedores.
         </p>
       </div>
+
+      {/* GRID */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 2fr',
+          gap: '24px',
+        }}
+      >
+
+        {/* FORMULARIO */}
+        <div
+          style={{
+            backgroundColor: '#FFFFFF',
+            border: '1px solid #E5E7EB',
+            borderRadius: '20px',
+            padding: '24px',
+            boxShadow: '0 8px 20px rgba(0,0,0,0.05)',
+            height: 'fit-content',
+          }}
+        >
+          <h3 style={{ marginTop: 0, color: '#0F766E' }}>Nueva Orden</h3><br />
+
+          {/* SELECCIONAR PROVEEDOR */}
+          <div style={{ marginBottom: '12px' }}>
+            <label style={{ fontSize: '12px', color: '#6B7280' }}>Proveedor </label><br />
+
+            <select
+              value={proveedorSeleccionado}
+              onChange={(e) => setProveedorSeleccionado(e.target.value)}
+              style={inputStyle}
+            >
+              <option disabled value="">Seleccionar proveedor</option>
+              {proveedores.map((p) => (
+                <option key={p.id_proveedor} value={p.id_proveedor}>
+                   {p.nombre_proveedor} ({p.estado})
+
+                </option>
+              ))}
+            </select>
+
+          </div>
+
+          {/* PRODUCTO */}
+          <div style={{ marginBottom: '12px'}}>
+
+            <label style={{ fontSize: '12px', color: '#6B7280', display: 'block', marginBottom: '8px' }}>Producto </label>
+               
+            <input
+              type="text"
+              placeholder="Buscar producto..."
+              value={filtroProducto}
+              onChange={(e) => setFiltroProducto(e.target.value)}
+              style={{ ...inputStyle, marginBottom: '12px', display: 'block' }} />
+           
+              <select
+                value={productoSeleccionado}
+                onChange={(e) => setProductoSeleccionado(e.target.value)}
+                style={{ ...inputStyle, display: 'block' }}>
+                <option value="">
+                  {filtroProducto ? "Ver productos encontrados" : "Seleccionar producto"}
+                </option>
+
+                {productos
+                .filter((p) =>p.descripcion.toLowerCase().includes(filtroProducto.toLowerCase()))
+                .map((p) => (
+                    <option key={p.id_producto} value={p.id_producto}> 
+                      {p.descripcion} (Stock: {p.stock_actual})
+                    </option>
+                ))}
+              </select>
+          </div>
+
+
+          {/* CANTIDAD */}
+          <div style={{ marginBottom: '12px' }}>
+            <label style={{ fontSize: '12px', color: '#6B7280' }}>Cantidad </label><br />
+            <input
+              type="number"
+              value={cantidad}
+              onChange={(e) => {
+              const valor = Number(e.target.value);
+
+              if (valor > 100) {
+              setCantidad(100);
+              } else if (valor < 1) {
+              setCantidad(1);
+              } else {
+              setCantidad(valor);
+              }
+              }}
+              style={inputStyle}
+            />
+          </div>
+
+          <button
+            onClick={agregarProducto}
+            style={{
+              width: '100%',
+              padding: '12px',
+              backgroundColor: '#0F766E',
+              color: '#FFFFFF',
+              border: 'none',
+              borderRadius: '12px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+            }}
+          >
+            Agregar Producto
+          </button>
+        </div>
 
         {/* TABLA */}
         <div
@@ -548,11 +579,9 @@ export default function ComprasPage() {
               </tr>
             </thead>
 
-
-            {/* Aqui rellenar con la informacion del historial de Ordenes*/}
             <tbody>
               {detalles.map((d, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid #E5E7EB' }}>
+                <tr key={i} style={{ borderBottom: '1px solid #5f6166' }}>
                   <td style={td}>{d.nombre}</td>
                   <td style={td}>{d.cantidad}</td>
                   <td style={td}>L {d.precio}</td>
@@ -561,15 +590,15 @@ export default function ComprasPage() {
                     <button
                       onClick={() => eliminarDetalle(i)}
                       style={{
-                        backgroundColor: '#EF4444',
-                        color: '#FFF',
+                        backgroundColor: '#b20404c6',
+                        color: '#ffffff',
                         border: 'none',
                         padding: '6px 10px',
                         borderRadius: '6px',
                         cursor: 'pointer',
                       }}
                     >
-                      Cancelar
+                      X
                     </button>
                   </td>
                 </tr>
@@ -597,7 +626,7 @@ export default function ComprasPage() {
             <h3>Total: L {total}</h3>
 
             <button
-              onClick={guardarCompra}
+              onClick={guardarOrden}
               disabled={detalles.length === 0}
               style={{
                 padding: '10px 16px',
@@ -608,11 +637,11 @@ export default function ComprasPage() {
                 fontWeight: 'bold',
                 cursor: 'pointer',
               }}
-            > Registrar Compra
+            > Generar Orden
             </button>
           </div>
         </div>
-     
+      </div>
     </main>
   </div>
 );

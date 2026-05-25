@@ -222,6 +222,33 @@ export default function HistorialCompras() {
           </a>
 
           <a
+            href="/proveedores/ordenes"
+            style={{
+              padding: '10px 14px',
+              backgroundColor: '#374151',
+              color: '#FFFFFF',
+              borderRadius: '10px',
+              textDecoration: 'none',
+              fontSize: '13px',
+              fontWeight: 'bold',
+             }}>
+            Órdenes de Compra
+           </a>
+
+           <a href="/proveedores/ordenes/historial"
+           style={{
+              padding: '10px 14px',
+              backgroundColor: '#374151',
+              color: '#FFFFFF',
+              borderRadius: '10px',
+              textDecoration: 'none',
+              fontSize: '13px',
+              fontWeight: 'bold',
+             }}>
+            Historial de Órdenes
+           </a>
+
+          <a
             href="/proveedores/compras"
             style={{
               padding: '10px 14px',

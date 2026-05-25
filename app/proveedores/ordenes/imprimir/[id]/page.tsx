@@ -47,6 +47,14 @@ export default function ImprimirOrdenPage() {
     cargarOrden();
   }, []);
 
+  // Nombre del archivo PDF
+  useEffect(() => {
+  if (orden) {
+    document.title = `PROIS - Orden ${orden.numero_orden}`;
+  }
+  }, [orden]);
+
+
   const cargarOrden = async () => {
 
     const { data, error } = await supabase
@@ -140,6 +148,7 @@ export default function ImprimirOrdenPage() {
 
       {/* BOTONES */}
         <div
+            className="no-print"
             style={{
             display: "flex",
             justifyContent: "flex-end",
@@ -201,7 +210,7 @@ export default function ImprimirOrdenPage() {
           backgroundColor: "#FFFFFF",
           maxWidth: "1000px",
           margin: "0 auto",
-          padding: "50px",
+          padding: "30px",
           boxShadow: "0 0 20px rgba(0,0,0,0.10)",
           color: "#111827",
         }}
@@ -313,6 +322,8 @@ export default function ImprimirOrdenPage() {
             width: "100%",
             borderCollapse: "collapse",
             marginBottom: "30px",
+            breakInside: "avoid",
+            pageBreakInside: "avoid",
           }}
         >
 
@@ -376,6 +387,8 @@ export default function ImprimirOrdenPage() {
           style={{
             display: "flex",
             justifyContent: "flex-end",
+            breakInside: "avoid",
+            pageBreakInside: "avoid",
           }}
         >
 
@@ -438,12 +451,14 @@ export default function ImprimirOrdenPage() {
 
         {/* FIRMAS */}
         <div
-          style={{
+         style={{
             marginTop: "80px",
             display: "flex",
             justifyContent: "space-between",
+            breakInside: "avoid",
+            pageBreakInside: "avoid",
           }}
-        >
+          >
 
           <div
             style={{
@@ -480,6 +495,16 @@ export default function ImprimirOrdenPage() {
         </div>
 
       </div>
+
+      <style jsx global>{`
+        @media print {
+
+        @page { size: auto; margin: 10mm;}
+
+        .no-print { display: none !important;}
+
+        body {background: white !important;}}`}
+</style>
 
     </div>
   );

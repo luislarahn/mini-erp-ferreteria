@@ -123,6 +123,9 @@ export default function HistorialCompras() {
   const th: React.CSSProperties = {padding: '12px', textAlign: 'left', fontSize: '13px',};
   const td: React.CSSProperties = {padding: '12px', fontSize: '13px', color: '#374151'};
 
+  const imprimirReporte = () => {
+  window.print();
+  };
 
   return (
   <div
@@ -281,22 +284,45 @@ export default function HistorialCompras() {
 
       {/* TITULO */}
       <div
-        style={{
-          backgroundColor: '#FFFFFF',
-          border: '1px solid #E5E7EB',
-          borderRadius: '20px',
-          padding: '24px',
-          boxShadow: '0 8px 20px rgba(0,0,0,0.05)',
-          marginBottom: '24px',
-        }}
-      >
-        <h2 style={{ margin: 0, fontSize: '26px', color: '#111827' }}>
-          Reporte de Compras
-        </h2>
-        <p style={{ marginTop: '8px', color: '#6B7280', fontSize: '14px' }}>
-          Historial completo de compras registradas en el sistema.
-        </p>
-      </div>
+          style={{ 
+            backgroundColor: '#FFFFFF', 
+            border: '1px solid #E5E7EB', 
+            borderRadius: '20px', 
+            padding: '24px', 
+            boxShadow: '0 8px 20px rgba(0,0,0,0.05)', 
+            marginBottom: '24px',
+            justifyContent: 'space-between', 
+            gap: '12px',
+            flexWrap: 'wrap',
+            display: 'flex',
+          }}
+        >
+          <div>
+           <h2 style={{ margin: 0, fontSize: '26px', color: '#111827' }}>
+              Reporte de Compras
+            </h2>
+
+           <p style={{ marginTop: '8px', color: '#6B7280', fontSize: '14px' }}>
+             Historial completo de compras registradas en el sistema.
+           </p>
+         </div>
+
+         <button
+            onClick={imprimirReporte}
+            className="no-print"
+           style={{
+              padding: '12px 18px',
+              backgroundColor: '#0F766E',
+              color: '#FFFFFF',
+              border: 'none',
+              borderRadius: '10px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+            }}
+          >
+            Imprimir / Guardar PDF
+          </button>
+        </div>
 
       {/* TABLA */}
       <div
@@ -357,6 +383,19 @@ export default function HistorialCompras() {
       </div>
 
     </main>
+
+    <style jsx global>{`
+        @media print {
+
+         body { background: white !important;}
+         .no-print { display: none !important;}
+         header, a { display: none !important;}
+         main { padding: 0 !important; max-width: 100% !important;}
+         table { width: 100% !important; font-size: 12px !important;}
+         th, td { padding: 8px !important;}
+         tr { page-break-inside: avoid;}
+        }`}
+    </style>
   </div>
 );
 }

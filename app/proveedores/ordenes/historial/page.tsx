@@ -77,10 +77,11 @@ export default function HistorialOrdenesPage() {
 
 
     const ordenEstados: Record<string, number> = {
-      emitida: 1,
-      aceptada: 2,
-      completada: 3,
-      cancelada: 4,
+      pendiente: 1,
+      emitida: 2,
+      aceptada: 3,
+      completada:4,
+      cancelada: 5,
     };
     data.sort((a: any, b: any) => {
         return ordenEstados[a.estado] - ordenEstados[b.estado];
@@ -91,6 +92,8 @@ export default function HistorialOrdenesPage() {
   };
 
   const cambiarEstado = async (id: number, nuevoEstado: string) => {
+
+
   const { error } = await supabase
       .from("orden_compra")
       .update({ estado: nuevoEstado })
@@ -103,6 +106,25 @@ export default function HistorialOrdenesPage() {
      }
 
   // recargar tabla
+  cargarOrdenes();
+  };
+
+   // Imprimir
+  const imprimirOrden = async (id: number) => {
+
+  window.print();
+
+  const { error } = await supabase
+    .from("orden_compra")
+    .update({ estado: "emitida" })
+    .eq("id_orden_compra", id);
+
+  if (error) {
+    console.log(error);
+    alert("Error al imprimir");
+    return;
+  }
+
   cargarOrdenes();
   };
 
@@ -328,6 +350,36 @@ export default function HistorialOrdenesPage() {
                   </td>
 
                     <td style={td}>
+
+                     {o.estado === "pendiente" && (
+                      <div
+                       style={{
+                          display: 'flex',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Link
+                          href={`/proveedores/ordenes/imprimir/${o.id_orden_compra}`}
+                          style={{
+                            backgroundColor: '#2563EB',
+                            color: '#FFFFFF',
+                            border: 'none',
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            fontSize: '12px',
+                            minWidth: '186px',
+                            textDecoration: 'none',
+                            display: 'inline-block',
+                            textAlign: 'center',
+                          }}
+                        >
+                          Imprimir Orden
+                        </Link>
+                     </div>
+                    )}
+
                      {o.estado === "emitida" && (
                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',}}>
                         <div style={{display: 'flex', gap: '6px', justifyContent: 'center',}}>
@@ -361,22 +413,7 @@ export default function HistorialOrdenesPage() {
                         Cancelar
                     </button>
                      </div>
-                        
-                      <button
-                        onClick={() => window.print()}
-                        style={{
-                         backgroundColor: '#2563EB',
-                         color: '#FFFFFF',
-                         border: 'none',
-                         padding: '6px 12px',
-                         borderRadius: '6px',
-                         cursor: 'pointer',
-                         fontWeight: 'bold',
-                         fontSize: '12px',
-                         minWidth: '186px',
-                        }}>
-                          Imprimir
-                      </button>
+
                     </div>
                     )}
 
@@ -385,7 +422,7 @@ export default function HistorialOrdenesPage() {
                           <Link
                             href={`/proveedores/compras?orden=${o.id_orden_compra}`}
                              style={{
-                                backgroundColor: "#0F766E", color: "#fff", border: "none", padding: "8px 12px",
+                                backgroundColor: "#128177", color: "#fff", border: "none", padding: "8px 12px",
                                 borderRadius: "6px", cursor: "pointer", textDecoration: "none", fontSize: "12px",
                                 fontWeight: "bold", display: "inline-block", textAlign: "center",
                                 }}>
@@ -407,9 +444,10 @@ export default function HistorialOrdenesPage() {
                             minWidth: "110px",
                             textAlign: "center",
                             backgroundColor:
-                                 o.estado === "emitida" ? "#F59E0B"
-                               : o.estado === "aceptada" ? "#0F766E"
-                               : o.estado === "completada" ? "#72f140"
+                                 o.estado === "pendiente" ? "#2563EB"
+                               : o.estado === "emitida" ? "#F59E0B"
+                               : o.estado === "aceptada" ? "#128177"
+                               : o.estado === "completada" ? "#2e9107"
                                : "#EF4444"
                             }}
                            >

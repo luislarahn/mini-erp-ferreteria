@@ -14,6 +14,14 @@ interface Proveedor {
   correo: string;
   rtn: string;
   estado: string;
+
+  //Nuevo
+  id_categoria: number;
+}
+
+interface CategoriaProveedor {
+  id_categoria: number;
+  nombre_categoria: string;
 }
 
 export default function ModuloProveedor() {
@@ -31,6 +39,9 @@ export default function ModuloProveedor() {
   const [nombreContacto, setNombreContacto] = useState('');
   const [rtn, setRtn] = useState('');
 
+  const [categorias, setCategorias] = useState<CategoriaProveedor[]>([]);
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("");
+
   function cerrarSesion() {
     localStorage.removeItem('miniERPAuth')
     router.push('/')
@@ -38,6 +49,7 @@ export default function ModuloProveedor() {
 
   useEffect(() => {
     cargarProveedores();
+    cargarCategorias();
   }, []);
 
   // Use Effects Nuevos
@@ -61,6 +73,18 @@ export default function ModuloProveedor() {
       }
     }, [])
 
+  // Nueva función para cargar categorías de proveedores
+  const cargarCategorias = async () => {
+    const { data, error } = await supabase
+      .from("categoria_proveedor")
+      .select("*")
+      .order("nombre_categoria");
+
+    if (!error && data) {
+      setCategorias(data);
+    }
+  };
+
   const cargarProveedores = async () => {
   const { data, error } = await supabase
     .from('proveedor')
@@ -82,16 +106,22 @@ export default function ModuloProveedor() {
       telefono,
       correo,
       rtn,
+      id_categoria: categoriaSeleccionada,
       estado: 'activo'
     };
 
     // Verificar si ya existen los siguientes campos en la DB ----------------------
     // 1. Verificar nombre
-  const { data: nombreExistente } = await supabase
-    .from("proveedor")
-    .select("id_proveedor")
-    .eq("nombre_proveedor", nombre)
-    .limit(1);
+  let queryNombre = supabase
+  .from("proveedor")
+  .select("id_proveedor")
+  .eq("nombre_proveedor", nombre);
+
+if (editandoId) {
+  queryNombre = queryNombre.neq("id_proveedor", editandoId);
+}
+
+const { data: nombreExistente } = await queryNombre.limit(1);
 
   if (nombreExistente && nombreExistente.length > 0) {
     alert("El nombre del proveedor ya existe");
@@ -99,11 +129,17 @@ export default function ModuloProveedor() {
   }
 
   // 2. Verificar RTN
-  const { data: rtnExistente } = await supabase
-    .from("proveedor")
-    .select("id_proveedor")
-    .eq("rtn", rtn)
-    .limit(1);
+  let queryRTN = supabase
+  .from("proveedor")
+  .select("id_proveedor")
+  .eq("rtn", rtn);
+
+if (editandoId) {
+  queryRTN = queryRTN.neq("id_proveedor", editandoId);
+}
+
+const { data: rtnExistente } = await queryRTN.limit(1);
+
 
   if (rtnExistente && rtnExistente.length > 0) {
     alert("El RTN ya está registrado");
@@ -111,11 +147,17 @@ export default function ModuloProveedor() {
   }
 
   // 3. Verificar teléfono
-  const { data: telefonoExistente } = await supabase
-    .from("proveedor")
-    .select("id_proveedor")
-    .eq("telefono", telefono)
-    .limit(1);
+  let queryTelefono = supabase
+  .from("proveedor")
+  .select("id_proveedor")
+  .eq("telefono", telefono);
+
+if (editandoId) {
+  queryTelefono = queryTelefono.neq("id_proveedor", editandoId);
+}
+
+const { data: telefonoExistente } = await queryTelefono.limit(1);
+
 
   if (telefonoExistente && telefonoExistente.length > 0) {
     alert("El teléfono ya está registrado");
@@ -123,11 +165,17 @@ export default function ModuloProveedor() {
   }
 
   // 4. Verificar correo
-  const { data: correoExistente } = await supabase
-    .from("proveedor")
-    .select("id_proveedor")
-    .eq("correo", correo)
-    .limit(1);
+  let queryCorreo = supabase
+  .from("proveedor")
+  .select("id_proveedor")
+  .eq("correo", correo);
+
+if (editandoId) {
+  queryCorreo = queryCorreo.neq("id_proveedor", editandoId);
+}
+
+const { data: correoExistente } = await queryCorreo.limit(1);
+
 
   if (correoExistente && correoExistente.length > 0) {
     alert("El correo ya está registrado");
@@ -201,6 +249,9 @@ export default function ModuloProveedor() {
     setTelefono(prov.telefono);
     setCorreo(prov.correo);
     setRtn(prov.rtn);
+
+    //Nuevo
+    setCategoriaSeleccionada(String(prov.id_categoria));
   };
 
   const limpiarFormulario = () => {
@@ -211,6 +262,9 @@ export default function ModuloProveedor() {
     setEditandoId(null);
     setNombreContacto('');
     setRtn('');
+
+    //Nuevo
+    setCategoriaSeleccionada("");
   };
 
 
@@ -447,6 +501,9 @@ const btnDelete = {
             borderRadius: '20px',
             padding: '24px',
             boxShadow: '0 8px 20px rgba(0,0,0,0.05)',
+            alignSelf: 'stretch',
+            position: 'sticky',
+            top: '30px',
             height: 'fit-content',
           }}
         >
@@ -500,6 +557,25 @@ const btnDelete = {
                style={inputStyle}
                required
             />
+            <select
+              value={categoriaSeleccionada}
+              onChange={(e) => setCategoriaSeleccionada(e.target.value)}
+              style={inputStyle}
+              required
+              >
+              <option value="">
+                Seleccionar categoría
+              </option>
+
+              {categorias.map((c) => (
+                <option
+                  key={c.id_categoria}
+                  value={c.id_categoria}
+                >
+                  {c.nombre_categoria}
+               </option>
+             ))}
+            </select>
 
             <input
               placeholder="Correo"

@@ -8,7 +8,15 @@ interface Proveedor {
   id_proveedor: number;
   nombre_proveedor: string;
   estado: string;
+
+  id_categoria: number;
+
+  categoria_proveedor?: {
+    nombre_categoria: string;
+  }[];
 }
+
+//________________________________
 
 interface Producto {
   id_producto: number;
@@ -28,6 +36,12 @@ interface DetalleOrden {
   total_linea: number;
 }
 
+// Nueva int
+interface CategoriaProveedor {
+  id_categoria: number;
+  nombre_categoria: string;
+}
+
 export default function OrdenesPage() {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -45,6 +59,14 @@ export default function OrdenesPage() {
   const router = useRouter()
 
   const [filtroProducto, setFiltroProducto] = useState("");
+
+  const [observaciones, setObservaciones] = useState("");
+
+    //--
+  const [categorias, setCategorias] = useState<CategoriaProveedor[]>([]);
+
+  const [categoriaProveedorSeleccionada,
+  setCategoriaProveedorSeleccionada] = useState("");
 
 
   function cerrarSesion() {
@@ -92,7 +114,14 @@ export default function OrdenesPage() {
   const cargarDatos = async () => {
     const { data: proveedoresData } = await supabase
       .from("proveedor")
-      .select("id_proveedor, nombre_proveedor, estado")
+      .select(`
+      id_proveedor,
+      nombre_proveedor,
+      estado,
+      id_categoria,
+      categoria_proveedor (
+      nombre_categoria
+      )`)
       .eq("estado", "activo");
 
     const { data: productosData } = await supabase
@@ -104,6 +133,12 @@ export default function OrdenesPage() {
       stock_actual,
       impuesto`);
 
+      const { data: categoriasData } = await supabase
+      .from("categoria_proveedor")
+      .select("*")
+      .order("nombre_categoria");
+
+      if (categoriasData) setCategorias(categoriasData);
     if (proveedoresData) setProveedores(proveedoresData);
     if (productosData) setProductos(productosData);
   };
@@ -238,7 +273,8 @@ export default function OrdenesPage() {
         subtotal,
         impuesto,
         total,
-        estado: "emitida",
+        estado: "pendiente",
+        observaciones,
       },
     ])
     .select()
@@ -272,7 +308,8 @@ export default function OrdenesPage() {
   }
 
   alert("Orden generada correctamente");
-
+  
+  setObservaciones("");
   setDetalles([]);
   setProveedorSeleccionado("");
     
@@ -469,6 +506,44 @@ export default function OrdenesPage() {
         >
           <h3 style={{ marginTop: 0, color: '#0F766E' }}>Nueva Orden</h3><br />
 
+          {/* CATEGORÍA PROVEEDOR */}
+          <div style={{ marginBottom: '12px' }}>
+
+           <label
+             style={{
+                fontSize: '12px',
+                color: '#6B7280'
+              }}
+            >
+              Seleccionar categoría del proveedor
+            </label><br />
+
+            <select
+             value={categoriaProveedorSeleccionada}
+             onChange={(e) => {
+               setCategoriaProveedorSeleccionada(e.target.value)
+                setProveedorSeleccionado("")
+              }}
+              style={inputStyle}
+            >
+
+              <option value="">
+                Todas las categorías
+              </option>
+
+              {categorias.map((c) => (
+                <option
+                  key={c.id_categoria}
+                  value={c.id_categoria}
+                >
+                  {c.nombre_categoria}
+                </option>
+             ))}
+
+            </select>
+
+          </div>
+
           {/* SELECCIONAR PROVEEDOR */}
           <div style={{ marginBottom: '12px' }}>
             <label style={{ fontSize: '12px', color: '#6B7280' }}>Proveedor </label><br />
@@ -479,7 +554,18 @@ export default function OrdenesPage() {
               style={inputStyle}
             >
               <option disabled value="">Seleccionar proveedor</option>
-              {proveedores.map((p) => (
+              {proveedores
+              .filter((p) => {
+
+                if (!categoriaProveedorSeleccionada)
+                return true;
+
+                  return (
+                    p.id_categoria ===
+                    Number(categoriaProveedorSeleccionada)
+                  );
+                  })
+                   .map((p) => (
                 <option key={p.id_proveedor} value={p.id_proveedor}>
                    {p.nombre_proveedor} ({p.estado})
 
@@ -541,6 +627,19 @@ export default function OrdenesPage() {
             />
           </div>
 
+          {/* OBSERVACIONES */}
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{ fontSize: '12px', color: '#6B7280' }}> Observaciones </label><br />
+
+          <textarea
+            value={observaciones}
+            onChange={(e) => setObservaciones(e.target.value)}
+            placeholder="Detalles adicionales para el proveedor..."
+            rows={4}
+              style={{...inputStyle, width: '100%', resize: 'vertical', fontFamily: 'Arial',}}/>
+        </div>    
+
+          {/* AGREGAR PRODUCTO */}    
           <button
             onClick={agregarProducto}
             style={{

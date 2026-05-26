@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -28,7 +28,7 @@ interface DetalleCompra {
   total_linea: number;
 }
 
-export default function ComprasPage() {
+function ComprasContent() {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState("");
@@ -616,4 +616,13 @@ export default function ComprasPage() {
     </main>
   </div>
 );
+
+}
+
+export default function ComprasPage() {
+  return (
+    <Suspense fallback={<div>Cargando...</div>}>
+      <ComprasContent />
+    </Suspense>
+  );
 }

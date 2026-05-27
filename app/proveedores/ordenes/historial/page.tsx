@@ -26,6 +26,9 @@ export default function HistorialOrdenesPage() {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [menuAbierto, setMenuAbierto] = useState(false);
 
+  // nuevo estado para filtrar ordenes
+  const [busquedaOrden, setBusquedaOrden] = useState("");
+
   function cerrarSesion() {
     localStorage.removeItem("miniERPAuth");
     router.push("/");
@@ -134,6 +137,13 @@ export default function HistorialOrdenesPage() {
       currency: "HNL",
     });
   };
+  
+  const ordenesFiltradas = ordenes.filter((o) =>
+  o.numero_orden.toLowerCase().includes(busquedaOrden.toLowerCase()) ||
+  o.proveedor?.nombre_proveedor
+    ?.toLowerCase()
+    .includes(busquedaOrden.toLowerCase())
+);
 
   const th: React.CSSProperties = {
     padding: "12px",
@@ -293,25 +303,49 @@ export default function HistorialOrdenesPage() {
 
         </div><br />
 
+       {/* TITULO */}
+        <div
+         style={{
+           backgroundColor: '#FFFFFF',
+           border: '1px solid #E5E7EB',
+            borderRadius: '20px',
+            padding: '24px',
+            boxShadow: '0 8px 20px rgba(0,0,0,0.05)',
+           marginBottom: '24px',
+            display: 'flex',
+           justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '20px',
+            flexWrap: 'wrap',
+          }}
+        >
 
-        {/* TITULO */}
-      <div
-        style={{
-          backgroundColor: '#FFFFFF',
-          border: '1px solid #E5E7EB',
-          borderRadius: '20px',
-          padding: '24px',
-          boxShadow: '0 8px 20px rgba(0,0,0,0.05)',
-          marginBottom: '24px',
-        }}
-      >
-        <h2 style={{ margin: 0, fontSize: '26px', color: '#111827' }}>
-          Lista de órdenes generadas al proveedor
-        </h2>
-        <p style={{ marginTop: '8px', color: '#6B7280', fontSize: '14px' }}>
-          Historial completo de Ordenes registradas en el sistema.
-        </p>
-      </div>
+         <div>
+           <h2 style={{ margin: 0, fontSize: '26px', color: '#111827' }}>
+             Lista de órdenes generadas al proveedor
+           </h2>
+
+           <p style={{ marginTop: '8px', color: '#6B7280', fontSize: '14px' }}>
+              Historial completo de Ordenes registradas en el sistema.
+           </p>
+          </div>
+
+         <input
+            type="text"
+            placeholder="Buscar orden..."
+           value={busquedaOrden}
+           onChange={(e) => setBusquedaOrden(e.target.value)}
+           style={{
+             padding: '12px',
+             borderRadius: '12px',
+             border: '1px solid #D1D5DB',
+             outline: 'none',
+             minWidth: '260px',
+             fontSize: '14px',
+            }}
+          />
+
+        </div>
 
         {/* TABLA */}
         <div style={{
@@ -335,7 +369,7 @@ export default function HistorialOrdenesPage() {
             </thead>
 
             <tbody>
-              {ordenes.map((o) => (
+              {ordenesFiltradas.map((o) => (
                 <tr key={o.id_orden_compra} style={{ borderBottom: "1px solid #E5E7EB" }}>
                   <td style={td}>{o.numero_orden}</td>
 

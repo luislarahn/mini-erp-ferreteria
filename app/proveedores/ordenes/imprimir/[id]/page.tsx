@@ -111,6 +111,7 @@ export default function ImprimirOrdenPage() {
     }
 
     alert("Orden emitida correctamente");
+    window.history.back()
   };
 
   if (!orden) {

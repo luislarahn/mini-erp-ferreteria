@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation'
 import Link from 'next/link';
-import { obtenerUsuarioSesion, puedeEntrarModulo, tienePermiso, type UsuarioSesion } from '@/lib/auth';
 
 // Interfaz para proveedores--
 interface Proveedor {
@@ -36,7 +35,6 @@ export default function ModuloProveedor() {
   //Nuevos
   const menuRef = useRef<HTMLDivElement | null>(null)
   const [menuAbierto, setMenuAbierto] = useState(false)
-  const [usuarioActual, setUsuarioActual] = useState<UsuarioSesion | null>(null)
   const router = useRouter()
   const [nombreContacto, setNombreContacto] = useState('');
   const [rtn, setRtn] = useState('');
@@ -56,24 +54,10 @@ export default function ModuloProveedor() {
 
   // Use Effects Nuevos
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const auth = localStorage.getItem('miniERPAuth')
-      const usuario = obtenerUsuarioSesion()
-      if (auth !== 'true') {
-        router.push('/')
-        return
-      }
-
-      if (!puedeEntrarModulo(usuario, 'proveedores')) {
-        alert('No tienes permiso para ingresar al módulo de Proveedores.')
-        router.push('/dashboard')
-        return
-      }
-
-      setUsuarioActual(usuario)
-    }, 0)
-
-    return () => window.clearTimeout(timer)
+    const auth = localStorage.getItem('miniERPAuth')
+    if (auth !== 'true') {
+      router.push('/')
+    }
   }, [router])
 
   useEffect(() => {
@@ -114,16 +98,6 @@ export default function ModuloProveedor() {
 
   const guardarProveedor = async (e: any) => {
     e.preventDefault();
-
-    if (editandoId && !tienePermiso(usuarioActual, 'proveedores.editar')) {
-      alert('No tienes permiso para editar proveedores.')
-      return
-    }
-
-    if (!editandoId && !tienePermiso(usuarioActual, 'proveedores.crear')) {
-      alert('No tienes permiso para crear proveedores.')
-      return
-    }
 
     const datos = {
       nombre_proveedor: nombre,
@@ -235,11 +209,6 @@ const { data: correoExistente } = await queryCorreo.limit(1);
   };
 
   const eliminarProveedor = async (id: number) => {
-    if (!tienePermiso(usuarioActual, 'proveedores.eliminar')) {
-      alert('No tienes permiso para eliminar proveedores.')
-      return
-    }
-
     if (confirm("¿Estás seguro de eliminar este proveedor?")) {
       const { error } = await supabase
         .from('proveedor')
@@ -254,10 +223,6 @@ const { data: correoExistente } = await queryCorreo.limit(1);
   const cambiarEstadoProveedor = async (
   id_proveedor: number,
   estadoActual: string ) => {
-  if (!tienePermiso(usuarioActual, 'proveedores.editar')) {
-    alert('No tienes permiso para editar proveedores.')
-    return
-  }
 
   const nuevoEstado =
     estadoActual === "activo"
@@ -277,11 +242,6 @@ const { data: correoExistente } = await queryCorreo.limit(1);
 };
 
   const prepararEdicion = (prov: Proveedor) => {
-    if (!tienePermiso(usuarioActual, 'proveedores.editar')) {
-      alert('No tienes permiso para editar proveedores.')
-      return
-    }
-
     setEditandoId(prov.id_proveedor);
     setNombre(prov.nombre_proveedor);
     setNombreContacto(prov.nombre_contacto);

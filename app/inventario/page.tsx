@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { obtenerUsuarioSesion, puedeEntrarModulo, tienePermiso, type UsuarioSesion } from '../../lib/auth'
 import * as XLSX from 'xlsx'
 
 type PestanaActiva = 'registros' | 'operaciones' | 'reportes'
@@ -13,6 +14,7 @@ type TipoReporteInventario = 'productos' | 'movimientos'
 export default function InventarioPage() {
   const router = useRouter()
   const [menuAbierto, setMenuAbierto] = useState(false)
+  const [usuarioActual, setUsuarioActual] = useState<UsuarioSesion | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
 
   const [pestanaActiva, setPestanaActiva] = useState<PestanaActiva>('registros')
@@ -55,10 +57,24 @@ export default function InventarioPage() {
   const [filtroTipoMovimiento, setFiltroTipoMovimiento] = useState('Todos')
 
   useEffect(() => {
-    const auth = localStorage.getItem('miniERPAuth')
-    if (auth !== 'true') {
-      router.push('/')
-    }
+    const timer = window.setTimeout(() => {
+      const auth = localStorage.getItem('miniERPAuth')
+      const usuario = obtenerUsuarioSesion()
+      if (auth !== 'true') {
+        router.push('/')
+        return
+      }
+
+      if (!puedeEntrarModulo(usuario, 'inventario')) {
+        alert('No tienes permiso para ingresar al módulo de Inventario.')
+        router.push('/dashboard')
+        return
+      }
+
+      setUsuarioActual(usuario)
+    }, 0)
+
+    return () => window.clearTimeout(timer)
   }, [router])
 
   useEffect(() => {
@@ -148,6 +164,16 @@ export default function InventarioPage() {
 
   async function guardarProducto(e: React.FormEvent) {
     e.preventDefault()
+
+    if (idProductoEditando !== null && !tienePermiso(usuarioActual, 'inventario.editar')) {
+      alert('No tienes permiso para editar productos.')
+      return
+    }
+
+    if (idProductoEditando === null && !tienePermiso(usuarioActual, 'inventario.crear')) {
+      alert('No tienes permiso para crear productos.')
+      return
+    }
 
     const descripcionLimpia = descripcion.trim()
     const categoriaLimpia = categoria.trim()
@@ -246,6 +272,11 @@ export default function InventarioPage() {
 
   async function guardarOperacionStock(e: React.FormEvent) {
     e.preventDefault()
+
+    if (!tienePermiso(usuarioActual, 'inventario.editar')) {
+      alert('No tienes permiso para modificar el stock.')
+      return
+    }
 
     const descripcionLimpia = descripcionOperacion.trim()
     const cantidad = Number(cantidadOperacion)
@@ -348,6 +379,11 @@ export default function InventarioPage() {
   }
 
   function editarProducto(producto: any) {
+    if (!tienePermiso(usuarioActual, 'inventario.editar')) {
+      alert('No tienes permiso para editar productos.')
+      return
+    }
+
     setIdProductoEditando(producto.id_producto)
     setDescripcion(producto.descripcion || '')
     setCategoria(producto.categoria || '')
@@ -367,6 +403,11 @@ export default function InventarioPage() {
   }
 
   async function eliminarProducto(id: number) {
+    if (!tienePermiso(usuarioActual, 'inventario.eliminar')) {
+      alert('No tienes permiso para eliminar productos.')
+      return
+    }
+
     const confirmar = confirm('¿Está seguro de eliminar este producto? Esta acción no se puede deshacer.')
 
     if (!confirmar) return

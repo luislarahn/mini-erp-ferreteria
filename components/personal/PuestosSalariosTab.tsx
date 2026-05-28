@@ -12,7 +12,13 @@ type Puesto = {
   created_at?: string
 }
 
-export default function PuestosSalariosTab() {
+type PuestosSalariosTabProps = {
+  puedeCrear?: boolean
+  puedeEditar?: boolean
+  puedeEliminar?: boolean
+}
+
+export default function PuestosSalariosTab({ puedeCrear = true, puedeEditar = true, puedeEliminar = true }: PuestosSalariosTabProps) {
   const [puestos, setPuestos] = useState<Puesto[]>([])
   const [nombrePuesto, setNombrePuesto] = useState('')
   const [prefijoPuesto, setPrefijoPuesto] = useState('')
@@ -58,6 +64,11 @@ export default function PuestosSalariosTab() {
 
   async function guardarPuesto() {
     setMensaje('')
+
+    if (!puedeCrear) {
+      setMensaje('No tienes permiso para crear puestos.')
+      return
+    }
 
     const nombre = nombrePuesto.trim()
     const prefijo = prefijoPuesto.trim().toUpperCase()
@@ -108,6 +119,11 @@ export default function PuestosSalariosTab() {
   }
 
   async function eliminarPuesto(id: number) {
+    if (!puedeEliminar) {
+      setMensaje('No tienes permiso para eliminar puestos.')
+      return
+    }
+
     if (!confirm('¿Estás seguro de que quieres eliminar este puesto?')) return
 
     setCargando(true)
@@ -126,6 +142,11 @@ export default function PuestosSalariosTab() {
   }
 
   async function editarPuesto(puesto: Puesto) {
+    if (!puedeEditar) {
+      setMensaje('No tienes permiso para editar puestos.')
+      return
+    }
+
     setEditandoId(puesto.id_puesto)
     setNombrePuesto(puesto.nombre_puesto)
     setPrefijoPuesto(puesto.prefijo_puesto)
@@ -135,6 +156,11 @@ export default function PuestosSalariosTab() {
   }
 
   async function actualizarPuesto() {
+    if (!puedeEditar) {
+      setMensaje('No tienes permiso para editar puestos.')
+      return
+    }
+
     if (!editandoId) return
 
     const nombre = nombrePuesto.trim()
@@ -242,7 +268,7 @@ export default function PuestosSalariosTab() {
             <div className="flex gap-3 pt-2">
               <button
                 onClick={editandoId ? actualizarPuesto : guardarPuesto}
-                disabled={cargando}
+                disabled={cargando || (editandoId ? !puedeEditar : !puedeCrear)}
                 className="w-full px-4 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold disabled:opacity-50"
               >
                 {cargando ? (editandoId ? 'Actualizando...' : 'Guardando...') : (editandoId ? 'Actualizar puesto' : 'Guardar puesto')}
@@ -314,18 +340,22 @@ export default function PuestosSalariosTab() {
                         </button>
                         {dropdownOpen === puesto.id_puesto && (
                           <div className="absolute right-0 mt-2 w-32 bg-white border border-gray-300 rounded shadow-lg z-10">
-                            <button 
-                              onClick={() => { editarPuesto(puesto); setDropdownOpen(null); }} 
-                              className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-                            >
-                              Editar
-                            </button>
-                            <button 
-                              onClick={() => { eliminarPuesto(puesto.id_puesto); setDropdownOpen(null); }} 
-                              className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-red-600"
-                            >
-                              Eliminar
-                            </button>
+                            {puedeEditar && (
+                              <button
+                                onClick={() => { editarPuesto(puesto); setDropdownOpen(null); }}
+                                className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                              >
+                                Editar
+                              </button>
+                            )}
+                            {puedeEliminar && (
+                              <button
+                                onClick={() => { eliminarPuesto(puesto.id_puesto); setDropdownOpen(null); }}
+                                className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-red-600"
+                              >
+                                Eliminar
+                              </button>
+                            )}
                           </div>
                         )}
                       </td>

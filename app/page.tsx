@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
+import { PERMISOS_POR_ROL } from '../lib/auth'
 
 type UsuarioLogin = {
   id_usuario?: number
@@ -12,6 +13,10 @@ type UsuarioLogin = {
   estado?: string
   contrasena?: string
   password?: string
+}
+
+type RolLogin = {
+  permisos?: string[]
 }
 
 export default function LoginPage() {
@@ -35,6 +40,7 @@ export default function LoginPage() {
         nombre: 'Admin',
         correo: correoLimpio,
         rol: 'Administrador',
+        permisos: PERMISOS_POR_ROL.administrador,
       }))
       router.push('/dashboard')
       return
@@ -63,12 +69,23 @@ export default function LoginPage() {
         .update({ ultima_sesion: new Date().toISOString() })
         .eq('id_usuario', usuario.id_usuario)
 
+      const { data: rolData } = await supabase
+        .from('roles')
+        .select('permisos')
+        .eq('nombre_rol', usuario.rol ?? '')
+        .maybeSingle()
+
+      const permisosRol = Array.isArray((rolData as RolLogin | null)?.permisos)
+        ? (rolData as RolLogin).permisos
+        : PERMISOS_POR_ROL[(usuario.rol ?? '').toLowerCase().trim()] ?? []
+
       localStorage.setItem('miniERPAuth', 'true')
       localStorage.setItem('miniERPUsuario', JSON.stringify({
         id_usuario: usuario.id_usuario,
         nombre: usuario.nombre,
         correo: usuario.correo,
         rol: usuario.rol,
+        permisos: permisosRol,
       }))
       router.push('/dashboard')
     } catch (err) {

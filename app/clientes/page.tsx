@@ -10,6 +10,7 @@ import ClientesTab from '../../components/clientes/ClientesTab'
 import ReportesTab from '../../components/clientes/ReportesTab'
 import ConfiguracionesTab from '../../components/clientes/ConfiguracionesTab'
 import ReporteProductos from '../../components/clientes/inventario/ReporteProductos'
+import { obtenerUsuarioSesion, puedeEntrarModulo, tienePermiso, type UsuarioSesion } from '../../lib/auth'
 
 type PestanaActiva =
   | 'facturacion'
@@ -24,13 +25,28 @@ export default function ClientesPage() {
   const router = useRouter()
   const [pestanaActiva, setPestanaActiva] = useState<PestanaActiva>('facturacion')
   const [menuAbierto, setMenuAbierto] = useState(false)
+  const [usuarioActual, setUsuarioActual] = useState<UsuarioSesion | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    const auth = localStorage.getItem('miniERPAuth')
-    if (auth !== 'true') {
-      router.push('/')
-    }
+    const timer = window.setTimeout(() => {
+      const auth = localStorage.getItem('miniERPAuth')
+      const usuario = obtenerUsuarioSesion()
+      if (auth !== 'true') {
+        router.push('/')
+        return
+      }
+
+      if (!puedeEntrarModulo(usuario, 'clientes')) {
+        alert('No tienes permiso para ingresar al módulo de Clientes.')
+        router.push('/dashboard')
+        return
+      }
+
+      setUsuarioActual(usuario)
+    }, 0)
+
+    return () => window.clearTimeout(timer)
   }, [router])
 
   useEffect(() => {
@@ -376,7 +392,13 @@ export default function ClientesPage() {
             <NotasCreditoTab irACrearCliente={() => setPestanaActiva('clientes')} />
           )}
           {pestanaActiva === 'productos' && <ReporteProductos />}
-          {pestanaActiva === 'clientes' && <ClientesTab />}
+          {pestanaActiva === 'clientes' && (
+            <ClientesTab
+              puedeCrear={tienePermiso(usuarioActual, 'clientes.crear')}
+              puedeEditar={tienePermiso(usuarioActual, 'clientes.editar')}
+              puedeEliminar={tienePermiso(usuarioActual, 'clientes.eliminar')}
+            />
+          )}
           {pestanaActiva === 'reportes' && <ReportesTab />}
           {pestanaActiva === 'configuraciones' && <ConfiguracionesTab />}
         </div>

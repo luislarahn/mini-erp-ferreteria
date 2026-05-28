@@ -12,9 +12,9 @@ type Rol = {
 
 const PERMISOS_DISPONIBLES = [
   'inventario.ver', 'inventario.crear', 'inventario.editar', 'inventario.eliminar',
-  'clientes.ver', 'clientes.crear', 'clientes.editar',
-  'proveedores.ver', 'proveedores.crear', 'proveedores.editar',
-  'personal.ver', 'personal.crear', 'personal.editar',
+  'clientes.ver', 'clientes.crear', 'clientes.editar', 'clientes.eliminar',
+  'proveedores.ver', 'proveedores.crear', 'proveedores.editar', 'proveedores.eliminar',
+  'personal.ver', 'personal.crear', 'personal.editar', 'personal.eliminar',
   'ajustes.ver', 'ajustes.editar',
   'reportes.ver', 'reportes.exportar',
 ]
@@ -35,9 +35,20 @@ PERMISOS_DISPONIBLES.forEach(p => {
   grupPermisos[modulo].push(p)
 })
 
-const ICONOS: Record<string, string> = { inventario: '📦', clientes: '👥', proveedores: '🚚', personal: '🧑‍💼', ajustes: '⚙️', reportes: '📊' }
+const CODIGOS_MODULO: Record<string, string> = {
+  inventario: 'INV',
+  clientes: 'CLI',
+  proveedores: 'PRO',
+  personal: 'PER',
+  ajustes: 'AJ',
+  reportes: 'REP',
+}
 
-export default function RolesTab() {
+type RolesTabProps = {
+  puedeEditar?: boolean
+}
+
+export default function RolesTab({ puedeEditar = true }: RolesTabProps) {
   const [roles, setRoles] = useState<Rol[]>(ROLES_INICIALES)
   const [rolSeleccionado, setRolSeleccionado] = useState<Rol | null>(null)
   const [modoEdicion, setModoEdicion] = useState(false)
@@ -79,6 +90,11 @@ export default function RolesTab() {
   }
 
   async function guardarRol() {
+    if (!puedeEditar) {
+      alert('No tienes permiso para editar roles.')
+      return
+    }
+
     if (!rolSeleccionado) return
 
     const { error } = await supabase
@@ -101,6 +117,11 @@ export default function RolesTab() {
   }
 
   async function crearRol() {
+    if (!puedeEditar) {
+      alert('No tienes permiso para crear roles.')
+      return
+    }
+
     if (!nuevoRol.nombre_rol.trim()) {
       alert('Ingrese un nombre.')
       return
@@ -129,6 +150,11 @@ export default function RolesTab() {
   }
 
   async function eliminarRol(id: number) {
+    if (!puedeEditar) {
+      alert('No tienes permiso para eliminar roles.')
+      return
+    }
+
     const rol = roles.find(r => r.id_rol === id)
     if (!rol) return
     if (rol.nombre_rol === 'Administrador') {
@@ -153,6 +179,7 @@ export default function RolesTab() {
   }
 
   function togglePermiso(permiso: string) {
+    if (!puedeEditar) return
     if (!rolSeleccionado) return
     const permisos = rolSeleccionado.permisos.includes(permiso)
       ? rolSeleccionado.permisos.filter(p => p !== permiso)
@@ -175,7 +202,7 @@ export default function RolesTab() {
       <div style={{ width: '260px', flexShrink: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <span style={{ fontWeight: 'bold', color: '#111827', fontSize: '15px' }}>Roles ({roles.length})</span>
-          <button onClick={() => setMostrarFormulario(true)} style={{ padding: '7px 14px', backgroundColor: '#0F766E', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>+ Nuevo</button>
+          <button onClick={() => puedeEditar ? setMostrarFormulario(true) : alert('No tienes permiso para crear roles.')} disabled={!puedeEditar} style={{ padding: '7px 14px', backgroundColor: '#0F766E', color: '#fff', border: 'none', borderRadius: '8px', cursor: puedeEditar ? 'pointer' : 'not-allowed', fontSize: '13px', fontWeight: 'bold', opacity: puedeEditar ? 1 : 0.55 }}>+ Nuevo</button>
         </div>
         <input type="text" placeholder="Buscar..." value={busqueda} onChange={e => setBusqueda(e.target.value)}
           style={{ width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '10px', fontSize: '13px', marginBottom: '10px', boxSizing: 'border-box' as const }} />
@@ -190,7 +217,7 @@ export default function RolesTab() {
               </div>
               {rol.nombre_rol !== 'Administrador' && (
                 <button onClick={e => { e.stopPropagation(); eliminarRol(rol.id_rol) }}
-                  style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '16px', padding: '2px 6px' }}>✕</button>
+                  style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '13px', padding: '2px 6px', fontWeight: 'bold' }}>X</button>
               )}
             </div>
           ))}
@@ -200,7 +227,7 @@ export default function RolesTab() {
       <div style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: '16px', border: '1px solid #E5E7EB', padding: '24px' }}>
         {!rolSeleccionado && !mostrarFormulario && (
           <div style={{ textAlign: 'center', paddingTop: '60px', color: '#9CA3AF' }}>
-            <div style={{ fontSize: '48px', marginBottom: '12px' }}>🔐</div>
+            <div style={{ width: '76px', height: '76px', borderRadius: '18px', border: '1px solid #D1D5DB', backgroundColor: '#F9FAFB', color: '#0F766E', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>RP</div>
             <p>Seleccione un rol para ver sus permisos</p>
           </div>
         )}
@@ -242,7 +269,7 @@ export default function RolesTab() {
                       style={{ padding: '9px 20px', backgroundColor: '#F3F4F6', color: '#374151', border: '1px solid #D1D5DB', borderRadius: '10px', cursor: 'pointer', fontSize: '13px' }}>Cancelar</button>
                   </>
                 ) : (
-                  <button onClick={() => setModoEdicion(true)} style={{ padding: '9px 20px', backgroundColor: '#F3F4F6', color: '#374151', border: '1px solid #D1D5DB', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>✏️ Editar permisos</button>
+                  <button disabled={!puedeEditar} onClick={() => puedeEditar ? setModoEdicion(true) : alert('No tienes permiso para editar roles.')} style={{ padding: '9px 20px', backgroundColor: '#F3F4F6', color: '#374151', border: '1px solid #D1D5DB', borderRadius: '10px', cursor: puedeEditar ? 'pointer' : 'not-allowed', fontSize: '13px', fontWeight: 'bold', opacity: puedeEditar ? 1 : 0.55 }}>Editar permisos</button>
                 )}
               </div>
             </div>
@@ -250,7 +277,8 @@ export default function RolesTab() {
               {Object.entries(grupPermisos).map(([modulo, perms]) => (
                 <div key={modulo} style={{ backgroundColor: '#F9FAFB', borderRadius: '12px', padding: '14px', border: '1px solid #E5E7EB' }}>
                   <div style={{ fontWeight: 'bold', color: '#374151', fontSize: '13px', marginBottom: '10px', textTransform: 'capitalize' as const }}>
-                    {ICONOS[modulo]} {modulo}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '34px', height: '22px', borderRadius: '7px', marginRight: '8px', backgroundColor: '#E0F2F1', color: '#0F766E', fontSize: '10px', fontWeight: 'bold' }}>{CODIGOS_MODULO[modulo] ?? modulo.slice(0, 3).toUpperCase()}</span>
+                    {modulo}
                   </div>
                   {perms.map(p => (
                     <label key={p} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', cursor: modoEdicion ? 'pointer' : 'default' }}>

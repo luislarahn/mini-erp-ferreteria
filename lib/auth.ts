@@ -9,9 +9,9 @@ export type UsuarioSesion = {
 export const PERMISOS_POR_ROL: Record<string, string[]> = {
   administrador: [
     'inventario.ver', 'inventario.crear', 'inventario.editar', 'inventario.eliminar',
-    'clientes.ver', 'clientes.crear', 'clientes.editar',
-    'proveedores.ver', 'proveedores.crear', 'proveedores.editar',
-    'personal.ver', 'personal.crear', 'personal.editar',
+    'clientes.ver', 'clientes.crear', 'clientes.editar', 'clientes.eliminar',
+    'proveedores.ver', 'proveedores.crear', 'proveedores.editar', 'proveedores.eliminar',
+    'personal.ver', 'personal.crear', 'personal.editar', 'personal.eliminar',
     'ajustes.ver', 'ajustes.editar',
     'reportes.ver', 'reportes.exportar',
   ],
@@ -45,7 +45,8 @@ export function inicialUsuario(usuario: UsuarioSesion | null) {
 
 export function permisosUsuario(usuario: UsuarioSesion | null) {
   const rol = usuario?.rol?.toLowerCase().trim()
-  return usuario?.permisos?.length ? usuario.permisos : PERMISOS_POR_ROL[rol ?? ''] ?? []
+  if (Array.isArray(usuario?.permisos)) return usuario.permisos
+  return PERMISOS_POR_ROL[rol ?? ''] ?? []
 }
 
 export function tienePermiso(usuario: UsuarioSesion | null, permiso: string) {

@@ -65,7 +65,13 @@ function obtenerMensajeError(error: any) {
   }
 }
 
-export default function ClientesTab() {
+type ClientesTabProps = {
+  puedeCrear?: boolean
+  puedeEditar?: boolean
+  puedeEliminar?: boolean
+}
+
+export default function ClientesTab({ puedeCrear = true, puedeEditar = true, puedeEliminar = true }: ClientesTabProps) {
   const [formulario, setFormulario] = useState<FormularioCliente>(formularioVacio())
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [cargando, setCargando] = useState(false)
@@ -137,6 +143,16 @@ export default function ClientesTab() {
   async function guardarCliente() {
     setMensaje('')
 
+    if (idClienteEditando && !puedeEditar) {
+      setMensaje('No tienes permiso para editar clientes.')
+      return
+    }
+
+    if (!idClienteEditando && !puedeCrear) {
+      setMensaje('No tienes permiso para crear clientes.')
+      return
+    }
+
     if (!formulario.nombre_cliente.trim()) {
       setMensaje('El nombre del cliente es obligatorio.')
       return
@@ -198,6 +214,11 @@ export default function ClientesTab() {
   }
 
   function cargarClienteParaModificar(cliente: Cliente) {
+    if (!puedeEditar) {
+      setMensaje('No tienes permiso para editar clientes.')
+      return
+    }
+
     setIdClienteEditando(cliente.id_cliente)
     setFormulario({
       nombre_cliente: cliente.nombre_cliente || '',
@@ -217,6 +238,11 @@ export default function ClientesTab() {
   }
 
   async function eliminarCliente(cliente: Cliente) {
+    if (!puedeEliminar) {
+      setMensaje('No tienes permiso para eliminar clientes.')
+      return
+    }
+
     const confirmar = window.confirm(
       `¿Está seguro que desea eliminar el cliente "${cliente.nombre_cliente}"? Esta acción no se puede deshacer.`
     )
@@ -393,7 +419,7 @@ export default function ClientesTab() {
           <button
             type="button"
             onClick={guardarCliente}
-            disabled={cargando}
+            disabled={cargando || (idClienteEditando ? !puedeEditar : !puedeCrear)}
             className="px-5 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold disabled:opacity-50"
           >
             {cargando
@@ -504,8 +530,8 @@ export default function ClientesTab() {
                         className="rounded-lg bg-white border border-gray-300 px-2 py-1 text-black"
                       >
                         <option value="">Acción</option>
-                        <option value="modificar">Modificar</option>
-                        <option value="eliminar">Eliminar</option>
+                        {puedeEditar && <option value="modificar">Modificar</option>}
+                        {puedeEliminar && <option value="eliminar">Eliminar</option>}
                       </select>
                     </td>
                   </tr>

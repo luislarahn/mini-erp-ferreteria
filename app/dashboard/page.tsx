@@ -3,35 +3,40 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import { inicialUsuario, nombreUsuario, obtenerUsuarioSesion, type UsuarioSesion } from '../../lib/auth'
+import { inicialUsuario, nombreUsuario, obtenerUsuarioSesion, puedeEntrarModulo, type UsuarioSesion } from '../../lib/auth'
 
 const modulos = [
   {
     nombre: 'Inventario',
+    permiso: 'inventario',
     ruta: '/inventario',
     icono: '📦',
     descripcion: 'Control de productos y stock',
   },
   {
     nombre: 'Clientes',
+    permiso: 'clientes',
     ruta: '/clientes',
     icono: '👥',
     descripcion: 'Facturación y gestión de clientes',
   },
   {
     nombre: 'Proveedores',
+    permiso: 'proveedores',
     ruta: '/proveedores',
     icono: '🚚',
     descripcion: 'Control de proveedores',
   },
   {
     nombre: 'Personal',
+    permiso: 'personal',
     ruta: '/personal',
     icono: '🧑‍💼',
     descripcion: 'Gestión de empleados y puestos',
   },
   {
     nombre: 'Ajustes',
+    permiso: 'ajustes',
     ruta: '/ajustes',
     icono: '⚙️',
     descripcion: 'Configuración general del sistema',
@@ -77,6 +82,8 @@ export default function DashboardPage() {
     localStorage.removeItem('miniERPUsuario')
     router.push('/')
   }
+
+  const modulosPermitidos = modulos.filter((modulo) => puedeEntrarModulo(usuarioActual, modulo.permiso))
 
   return (
     <div
@@ -327,10 +334,10 @@ export default function DashboardPage() {
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 220px))',
             gap: '18px',
-            justifyContent: 'start',
+            justifyContent: 'center',
           }}
         >
-          {modulos.map((modulo) => (
+          {modulosPermitidos.map((modulo) => (
             <Link
               key={modulo.nombre}
               href={modulo.ruta}

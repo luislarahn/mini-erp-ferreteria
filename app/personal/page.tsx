@@ -7,6 +7,7 @@ import PersonalTab from '../../components/personal/PersonalTab'
 import PuestosSalariosTab from '../../components/personal/PuestosSalariosTab'
 import VacacionesTab from '../../components/personal/VacacionesTab'
 import ReportesTab from '../../components/personal/ReportesTab'
+import { obtenerUsuarioSesion, puedeEntrarModulo, tienePermiso, type UsuarioSesion } from '../../lib/auth'
 
 type PestanaActiva = 'personal' | 'puestos' | 'vacaciones' | 'reportes'
 
@@ -14,13 +15,28 @@ export default function PersonalPage() {
   const router = useRouter()
   const [pestanaActiva, setPestanaActiva] = useState<PestanaActiva>('personal')
   const [menuAbierto, setMenuAbierto] = useState(false)
+  const [usuarioActual, setUsuarioActual] = useState<UsuarioSesion | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    const auth = localStorage.getItem('miniERPAuth')
-    if (auth !== 'true') {
-      router.push('/')
-    }
+    const timer = window.setTimeout(() => {
+      const auth = localStorage.getItem('miniERPAuth')
+      const usuario = obtenerUsuarioSesion()
+      if (auth !== 'true') {
+        router.push('/')
+        return
+      }
+
+      if (!puedeEntrarModulo(usuario, 'personal')) {
+        alert('No tienes permiso para ingresar al módulo de Personal.')
+        router.push('/dashboard')
+        return
+      }
+
+      setUsuarioActual(usuario)
+    }, 0)
+
+    return () => window.clearTimeout(timer)
   }, [router])
 
   useEffect(() => {
@@ -331,8 +347,20 @@ export default function PersonalPage() {
             boxShadow: '0 10px 24px rgba(0,0,0,0.05)',
           }}
         >
-          {pestanaActiva === 'personal' && <PersonalTab />}
-          {pestanaActiva === 'puestos' && <PuestosSalariosTab />}
+          {pestanaActiva === 'personal' && (
+            <PersonalTab
+              puedeCrear={tienePermiso(usuarioActual, 'personal.crear')}
+              puedeEditar={tienePermiso(usuarioActual, 'personal.editar')}
+              puedeEliminar={tienePermiso(usuarioActual, 'personal.eliminar')}
+            />
+          )}
+          {pestanaActiva === 'puestos' && (
+            <PuestosSalariosTab
+              puedeCrear={tienePermiso(usuarioActual, 'personal.crear')}
+              puedeEditar={tienePermiso(usuarioActual, 'personal.editar')}
+              puedeEliminar={tienePermiso(usuarioActual, 'personal.eliminar')}
+            />
+          )}
           {pestanaActiva === 'vacaciones' && <VacacionesTab />}
           {pestanaActiva === 'reportes' && <ReportesTab />}
         </div>

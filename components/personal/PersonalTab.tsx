@@ -76,7 +76,13 @@ function generarPrefijoDisponible(nombrePuesto: string, puestos: Puesto[]) {
   return `${base}${contador}`
 }
 
-export default function PersonalTab() {
+type PersonalTabProps = {
+  puedeCrear?: boolean
+  puedeEditar?: boolean
+  puedeEliminar?: boolean
+}
+
+export default function PersonalTab({ puedeCrear = true, puedeEditar = true, puedeEliminar = true }: PersonalTabProps) {
   const [puestos, setPuestos] = useState<Puesto[]>([])
   const [empleados, setEmpleados] = useState<Empleado[]>([])
   const [cargando, setCargando] = useState(false)
@@ -271,6 +277,11 @@ export default function PersonalTab() {
   }
 
   function editarEmpleado(empleado: Empleado) {
+    if (!puedeEditar) {
+      setMensaje('No tienes permiso para editar empleados.')
+      return
+    }
+
     setEmpleadoEditando(empleado)
     setDniEmpleado(empleado.dni_empleado)
     setNombreCompleto(empleado.nombre_completo)
@@ -287,6 +298,11 @@ export default function PersonalTab() {
   }
 
   async function eliminarEmpleado(idEmpleado: number) {
+    if (!puedeEliminar) {
+      setMensaje('No tienes permiso para eliminar empleados.')
+      return
+    }
+
     const confirmar = window.confirm('¿Deseas eliminar este empleado? Esta acción no se puede deshacer.')
     if (!confirmar) return
 
@@ -354,6 +370,16 @@ export default function PersonalTab() {
 
   async function guardarEmpleado() {
     setMensaje('')
+
+    if (empleadoEditando && !puedeEditar) {
+      setMensaje('No tienes permiso para editar empleados.')
+      return
+    }
+
+    if (!empleadoEditando && !puedeCrear) {
+      setMensaje('No tienes permiso para crear empleados.')
+      return
+    }
 
     const dni = dniEmpleado.trim()
     const nombre = nombreCompleto.trim()
@@ -673,7 +699,7 @@ export default function PersonalTab() {
             <div className="flex flex-wrap gap-3 pt-2">
               <button
                 onClick={guardarEmpleado}
-                disabled={guardando}
+                disabled={guardando || (empleadoEditando ? !puedeEditar : !puedeCrear)}
                 className="flex-1 min-w-[160px] px-4 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold disabled:opacity-50"
               >
                 {guardando ? 'Guardando...' : empleadoEditando ? 'Actualizar Empleado' : 'Guardar Empleado'}
@@ -797,18 +823,22 @@ export default function PersonalTab() {
                       {accionesVisibles && (
                         <td className="p-4 border border-gray-200 text-center">
                           <div className="flex justify-center gap-2">
-                            <button
-                              onClick={() => editarEmpleado(empleado)}
-                              className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-sm"
-                            >
-                              Editar
-                            </button>
-                            <button
-                              onClick={() => eliminarEmpleado(empleado.id_empleado)}
-                              className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm"
-                            >
-                              Eliminar
-                            </button>
+                            {puedeEditar && (
+                              <button
+                                onClick={() => editarEmpleado(empleado)}
+                                className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-sm"
+                              >
+                                Editar
+                              </button>
+                            )}
+                            {puedeEliminar && (
+                              <button
+                                onClick={() => eliminarEmpleado(empleado.id_empleado)}
+                                className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm"
+                              >
+                                Eliminar
+                              </button>
+                            )}
                           </div>
                         </td>
                       )}

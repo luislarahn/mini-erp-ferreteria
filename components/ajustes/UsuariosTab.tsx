@@ -1,6 +1,6 @@
- 'use client'
+'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 
 type Usuario = {
@@ -20,7 +20,26 @@ function getColor(nombre: string) {
   return AVATAR_COLORS[nombre.charCodeAt(0) % AVATAR_COLORS.length]
 }
 
-export default function UsuariosTab() {
+function formatearUltimaSesion(fecha: string | null) {
+  if (!fecha) return 'Nunca'
+
+  const fechaSesion = new Date(fecha)
+  if (Number.isNaN(fechaSesion.getTime())) return fecha
+
+  return fechaSesion.toLocaleString('es-HN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+type UsuariosTabProps = {
+  puedeEditar?: boolean
+}
+
+export default function UsuariosTab({ puedeEditar = true }: UsuariosTabProps) {
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<'Todos' | 'Activo' | 'Inactivo'>('Todos')
@@ -29,9 +48,11 @@ export default function UsuariosTab() {
   const [form, setForm] = useState({ nombre: '', correo: '', rol: 'Vendedor', estado: 'Activo' as 'Activo' | 'Inactivo', contrasena: '' })
   const [rolesSistema, setRolesSistema] = useState<string[]>(['Administrador', 'Vendedor', 'Bodeguero', 'Encargado de Compras', 'Encargado de RRHH', 'Gerente'])
   const [mostrarResetPass, setMostrarResetPass] = useState<number | null>(null)
+  const [menuAcciones, setMenuAcciones] = useState<number | null>(null)
   const [nuevaPassword, setNuevaPassword] = useState('')
   const [cargando, setCargando] = useState(false)
   const [mensaje, setMensaje] = useState<string | null>(null)
+  const tablaRef = useRef<HTMLDivElement | null>(null)
 
   async function cargarRoles() {
     const { data, error } = await supabase
@@ -79,6 +100,11 @@ export default function UsuariosTab() {
   }
 
   async function guardarUsuario() {
+    if (!puedeEditar) {
+      alert('No tienes permiso para editar usuarios.')
+      return
+    }
+
     if (!form.nombre.trim() || !form.correo.trim()) {
       alert('Complete todos los campos requeridos.')
       return
@@ -133,6 +159,11 @@ export default function UsuariosTab() {
   }
 
   async function toggleEstado(id: number) {
+    if (!puedeEditar) {
+      alert('No tienes permiso para editar usuarios.')
+      return
+    }
+
     const usuario = usuarios.find(u => u.id_usuario === id)
     if (!usuario) return
 
@@ -151,15 +182,17 @@ export default function UsuariosTab() {
   }
 
   async function eliminarUsuario(id: number) {
+    if (!puedeEditar) {
+      alert('No tienes permiso para eliminar usuarios.')
+      return
+    }
+
     const usuario = usuarios.find(u => u.id_usuario === id)
     if (!usuario) return
 
-    if (usuario.rol === 'Administrador') {
-      const totalAdministradores = usuarios.filter(u => u.rol === 'Administrador').length
-      if (totalAdministradores <= 1) {
-        alert('No se puede eliminar el único Administrador.')
-        return
-      }
+    if (usuario.rol.toLowerCase() === 'administrador') {
+      alert('No se puede eliminar un usuario Administrador.')
+      return
     }
 
     if (!confirm('Eliminar este usuario?')) return
@@ -182,18 +215,34 @@ export default function UsuariosTab() {
   }
 
   function abrirCrear() {
+    if (!puedeEditar) {
+      alert('No tienes permiso para crear usuarios.')
+      return
+    }
+
     setUsuarioEditando(null)
     setForm({ nombre: '', correo: '', rol: rolesSistema.includes('Vendedor') ? 'Vendedor' : rolesSistema[0] ?? 'Vendedor', estado: 'Activo', contrasena: '' })
     setMostrarModal(true)
   }
 
   function abrirEditar(u: Usuario) {
+    if (!puedeEditar) {
+      alert('No tienes permiso para editar usuarios.')
+      return
+    }
+
     setUsuarioEditando(u)
     setForm({ nombre: u.nombre, correo: u.correo, rol: u.rol, estado: u.estado, contrasena: '' })
+    setMenuAcciones(null)
     setMostrarModal(true)
   }
 
   async function resetearPassword(id: number) {
+    if (!puedeEditar) {
+      alert('No tienes permiso para cambiar contraseñas.')
+      return
+    }
+
     if (!nuevaPassword || nuevaPassword.length < 6) {
       alert('Minimo 6 caracteres.')
       return
@@ -211,6 +260,7 @@ export default function UsuariosTab() {
 
     alert('Contrasena actualizada.')
     setMostrarResetPass(null)
+    setMenuAcciones(null)
     setNuevaPassword('')
   }
 
@@ -221,6 +271,17 @@ export default function UsuariosTab() {
     }, 0)
 
     return () => window.clearTimeout(timer)
+  }, [])
+
+  useEffect(() => {
+    function manejarClickFuera(event: MouseEvent) {
+      if (tablaRef.current && !tablaRef.current.contains(event.target as Node)) {
+        setMenuAcciones(null)
+      }
+    }
+
+    document.addEventListener('mousedown', manejarClickFuera)
+    return () => document.removeEventListener('mousedown', manejarClickFuera)
   }, [])
 
   const usuariosFiltrados = usuarios.filter(u => {
@@ -263,18 +324,19 @@ export default function UsuariosTab() {
           <option value="Activo">Activos</option>
           <option value="Inactivo">Inactivos</option>
         </select>
-        <button onClick={abrirCrear} style={{ padding: '10px 20px', backgroundColor: '#0F766E', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}>
+        <button onClick={abrirCrear} disabled={!puedeEditar} style={{ padding: '10px 20px', backgroundColor: '#0F766E', color: '#fff', border: 'none', borderRadius: '10px', cursor: puedeEditar ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '14px', opacity: puedeEditar ? 1 : 0.55 }}>
           + Nuevo usuario
         </button>
       </div>
 
       {/* Tabla */}
-      <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', border: '1px solid #E5E7EB', overflow: 'hidden' }}>
+      <div ref={tablaRef} style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', border: '1px solid #E5E7EB', overflow: 'visible', position: 'relative' }}>
+        <div style={{ maxHeight: '520px', overflowY: 'auto', overflowX: 'visible' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
               {['Usuario', 'Correo', 'Rol', 'Estado', 'Ultima sesion', 'Acciones'].map(h => (
-                <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: '#6B7280', textTransform: 'uppercase' }}>{h}</th>
+                <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: '#6B7280', textTransform: 'uppercase', width: h === 'Acciones' ? '260px' : undefined }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -299,22 +361,34 @@ export default function UsuariosTab() {
                 <td style={{ padding: '14px 16px' }}>
                   <span style={{ padding: '4px 10px', backgroundColor: u.estado === 'Activo' ? '#F0FDF4' : '#FEF2F2', color: u.estado === 'Activo' ? '#16A34A' : '#DC2626', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' }}>{u.estado}</span>
                 </td>
-                <td style={{ padding: '14px 16px', fontSize: '13px', color: '#6B7280' }}>{u.ultima_sesion ?? 'Nunca'}</td>
-                <td style={{ padding: '14px 16px' }}>
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    <button onClick={() => abrirEditar(u)} style={{ padding: '5px 10px', backgroundColor: '#F3F4F6', color: '#374151', border: '1px solid #D1D5DB', borderRadius: '7px', cursor: 'pointer', fontSize: '12px' }}>✏️</button>
-                    <button onClick={() => toggleEstado(u.id_usuario)} style={{ padding: '5px 10px', backgroundColor: u.estado === 'Activo' ? '#FEF9C3' : '#F0FDF4', color: u.estado === 'Activo' ? '#92400E' : '#16A34A', border: '1px solid #E5E7EB', borderRadius: '7px', cursor: 'pointer', fontSize: '12px' }}>
-                      {u.estado === 'Activo' ? '⏸️' : '▶️'}
-                    </button>
-                    <button onClick={() => { setMostrarResetPass(u.id_usuario); setNuevaPassword('') }} style={{ padding: '5px 10px', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', borderRadius: '7px', cursor: 'pointer', fontSize: '12px' }}>🔑</button>
-                    <button onClick={() => eliminarUsuario(u.id_usuario)} style={{ padding: '5px 10px', backgroundColor: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', borderRadius: '7px', cursor: 'pointer', fontSize: '12px' }}>🗑️</button>
-                  </div>
+                <td style={{ padding: '14px 16px', fontSize: '13px', color: '#6B7280', whiteSpace: 'nowrap' }}>{formatearUltimaSesion(u.ultima_sesion)}</td>
+                <td style={{ padding: '14px 16px', minWidth: '170px', position: 'relative' }}>
+                  <button
+                    onClick={() => setMenuAcciones(menuAcciones === u.id_usuario ? null : u.id_usuario)}
+                    style={{ width: '126px', padding: '8px 12px', borderRadius: '10px', border: '1px solid #D1D5DB', backgroundColor: '#FFFFFF', color: '#374151', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(0,0,0,0.04)' }}
+                  >
+                    Gestionar
+                  </button>
+
+                  {menuAcciones === u.id_usuario && (
+                    <div style={{ position: 'absolute', top: '48px', right: '16px', width: '156px', backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: '0 14px 28px rgba(0,0,0,0.12)', zIndex: 1000, overflow: 'hidden' }}>
+                      <button onClick={() => abrirEditar(u)} style={menuButtonStyle}>Editar usuario</button>
+                      <button onClick={() => { void toggleEstado(u.id_usuario); setMenuAcciones(null) }} style={menuButtonStyle}>
+                        {u.estado === 'Activo' ? 'Inactivar usuario' : 'Activar usuario'}
+                      </button>
+                      <button onClick={() => { setMostrarResetPass(u.id_usuario); setNuevaPassword(''); setMenuAcciones(null) }} style={menuButtonStyle}>Cambiar clave</button>
+                      {u.rol.toLowerCase() !== 'administrador' && (
+                        <button onClick={() => { void eliminarUsuario(u.id_usuario); setMenuAcciones(null) }} style={{ ...menuButtonStyle, color: '#DC2626' }}>Eliminar usuario</button>
+                      )}
+                    </div>
+                  )}
+
                   {mostrarResetPass === u.id_usuario && (
                     <div style={{ marginTop: '8px', display: 'flex', gap: '6px', alignItems: 'center' }}>
                       <input type="password" placeholder="Nueva contrasena" value={nuevaPassword} onChange={e => setNuevaPassword(e.target.value)}
                         style={{ padding: '6px 10px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '12px', width: '140px' }} />
-                      <button onClick={() => resetearPassword(u.id_usuario)} style={{ padding: '6px 10px', backgroundColor: '#0F766E', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>✓</button>
-                      <button onClick={() => setMostrarResetPass(null)} style={{ padding: '6px 10px', backgroundColor: '#F3F4F6', border: '1px solid #D1D5DB', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>✕</button>
+                      <button onClick={() => resetearPassword(u.id_usuario)} style={{ padding: '6px 10px', backgroundColor: '#0F766E', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>Guardar</button>
+                      <button onClick={() => setMostrarResetPass(null)} style={{ padding: '6px 10px', backgroundColor: '#F3F4F6', border: '1px solid #D1D5DB', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>Cancelar</button>
                     </div>
                   )}
                 </td>
@@ -322,6 +396,7 @@ export default function UsuariosTab() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Modal */}
@@ -374,4 +449,17 @@ export default function UsuariosTab() {
       )}
     </div>
   )
+}
+
+const menuButtonStyle = {
+  width: '100%',
+  padding: '10px 12px',
+  backgroundColor: '#FFFFFF',
+  border: 'none',
+  borderBottom: '1px solid #F3F4F6',
+  color: '#374151',
+  cursor: 'pointer',
+  fontSize: '12px',
+  fontWeight: 'bold',
+  textAlign: 'left' as const,
 }

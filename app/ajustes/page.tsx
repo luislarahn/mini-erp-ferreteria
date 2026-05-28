@@ -5,10 +5,9 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import RolesTab from '../../components/ajustes/RolesTab'
 import UsuariosTab from '../../components/ajustes/UsuariosTab'
-import ConfiguracionTab from '../../components/ajustes/ConfiguracionTab'
-import { inicialUsuario, nombreUsuario, obtenerUsuarioSesion, puedeEntrarAjustes, type UsuarioSesion } from '../../lib/auth'
+import { inicialUsuario, nombreUsuario, obtenerUsuarioSesion, puedeEntrarAjustes, tienePermiso, type UsuarioSesion } from '../../lib/auth'
 
-type PestanaActiva = 'usuarios' | 'roles' | 'configuracion'
+type PestanaActiva = 'usuarios' | 'roles'
 
 export default function AjustesPage() {
   const router = useRouter()
@@ -72,11 +71,11 @@ export default function AjustesPage() {
     }
   }
 
-  const pestanas: { key: PestanaActiva; label: string; icono: string }[] = [
-    { key: 'usuarios', label: 'Usuarios del sistema', icono: '👤' },
-    { key: 'roles', label: 'Roles y permisos', icono: '🔐' },
-    { key: 'configuracion', label: 'Configuracion', icono: '⚙️' },
+  const pestanas: { key: PestanaActiva; label: string; codigo: string }[] = [
+    { key: 'usuarios', label: 'Usuarios del sistema', codigo: 'US' },
+    { key: 'roles', label: 'Roles y permisos', codigo: 'RP' },
   ]
+  const puedeEditarAjustes = tienePermiso(usuarioActual, 'ajustes.editar')
 
   if (!autorizado) return null
 
@@ -117,22 +116,25 @@ export default function AjustesPage() {
         </div>
 
         <div style={{ marginBottom: '24px' }}>
-          <h2 style={{ margin: '0 0 4px 0', fontSize: '24px', color: '#111827', fontWeight: 'bold' }}>⚙️ Modulo de Ajustes</h2>
-          <p style={{ margin: 0, color: '#6B7280', fontSize: '14px' }}>Gestion de usuarios, roles y configuracion general del sistema</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ width: '38px', height: '38px', borderRadius: '10px', backgroundColor: '#0F766E', color: '#FFFFFF', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', boxShadow: '0 8px 18px rgba(15,118,110,0.18)' }}>⚙️</span>
+            <h2 style={{ margin: 0, fontSize: '24px', color: '#111827', fontWeight: 'bold' }}>Modulo de Ajustes</h2>
+          </div>
+          <p style={{ margin: 0, color: '#6B7280', fontSize: '14px' }}>Gestion de usuarios, roles y permisos del sistema</p>
         </div>
 
         <div style={{ marginBottom: '24px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
           {pestanas.map(p => (
             <button key={p.key} onClick={() => setPestanaActiva(p.key)} style={estiloPestana(pestanaActiva === p.key)}>
-              {p.icono} {p.label}
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '24px', borderRadius: '7px', marginRight: '8px', backgroundColor: pestanaActiva === p.key ? 'rgba(255,255,255,0.18)' : '#F3F4F6', color: pestanaActiva === p.key ? '#FFFFFF' : '#0F766E', fontSize: '11px', fontWeight: 'bold' }}>{p.codigo}</span>
+              {p.label}
             </button>
           ))}
         </div>
 
         <div style={{ backgroundColor: '#F9FAFB', borderRadius: '20px', padding: '24px', border: '1px solid #E5E7EB' }}>
-          {pestanaActiva === 'usuarios' && <UsuariosTab />}
-          {pestanaActiva === 'roles' && <RolesTab />}
-          {pestanaActiva === 'configuracion' && <ConfiguracionTab />}
+          {pestanaActiva === 'usuarios' && <UsuariosTab puedeEditar={puedeEditarAjustes} />}
+          {pestanaActiva === 'roles' && <RolesTab puedeEditar={puedeEditarAjustes} />}
         </div>
       </main>
     </div>

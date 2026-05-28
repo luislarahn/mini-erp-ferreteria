@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation'
 import Link from 'next/link';
+import { obtenerUsuarioSesion, puedeEntrarModulo, tienePermiso, type UsuarioSesion } from '@/lib/auth';
 
 // Interfaz para proveedores--
 interface Proveedor {
@@ -36,6 +37,8 @@ export default function ModuloProveedor() {
   const menuRef = useRef<HTMLDivElement | null>(null)
   const [menuAbierto, setMenuAbierto] = useState(false)
   const router = useRouter()
+  const [usuarioActual, setUsuarioActual] = useState<UsuarioSesion | null>(null)
+  const [autorizado, setAutorizado] = useState(false)
   const [nombreContacto, setNombreContacto] = useState('');
   const [rtn, setRtn] = useState('');
 
@@ -48,16 +51,29 @@ export default function ModuloProveedor() {
   }
 
   useEffect(() => {
+    if (!autorizado) return
     cargarProveedores();
     cargarCategorias();
-  }, []);
+  }, [autorizado]);
 
   // Use Effects Nuevos
   useEffect(() => {
     const auth = localStorage.getItem('miniERPAuth')
+    const usuario = obtenerUsuarioSesion()
+
     if (auth !== 'true') {
       router.push('/')
+      return
     }
+
+    if (!puedeEntrarModulo(usuario, 'proveedores')) {
+      alert('No tienes permiso para ingresar al modulo de Proveedores.')
+      router.push('/dashboard')
+      return
+    }
+
+    setUsuarioActual(usuario)
+    setAutorizado(true)
   }, [router])
 
   useEffect(() => {
@@ -98,6 +114,16 @@ export default function ModuloProveedor() {
 
   const guardarProveedor = async (e: any) => {
     e.preventDefault();
+
+    if (editandoId && !tienePermiso(usuarioActual, 'proveedores.editar')) {
+      alert('No tienes permiso para editar proveedores.')
+      return
+    }
+
+    if (!editandoId && !tienePermiso(usuarioActual, 'proveedores.crear')) {
+      alert('No tienes permiso para crear proveedores.')
+      return
+    }
 
     const datos = {
       nombre_proveedor: nombre,
@@ -209,6 +235,11 @@ const { data: correoExistente } = await queryCorreo.limit(1);
   };
 
   const eliminarProveedor = async (id: number) => {
+    if (!tienePermiso(usuarioActual, 'proveedores.eliminar')) {
+      alert('No tienes permiso para eliminar proveedores.')
+      return
+    }
+
     if (confirm("¿Estás seguro de eliminar este proveedor?")) {
       const { error } = await supabase
         .from('proveedor')
@@ -223,6 +254,10 @@ const { data: correoExistente } = await queryCorreo.limit(1);
   const cambiarEstadoProveedor = async (
   id_proveedor: number,
   estadoActual: string ) => {
+  if (!tienePermiso(usuarioActual, 'proveedores.editar')) {
+    alert('No tienes permiso para editar proveedores.')
+    return
+  }
 
   const nuevoEstado =
     estadoActual === "activo"
@@ -242,6 +277,11 @@ const { data: correoExistente } = await queryCorreo.limit(1);
 };
 
   const prepararEdicion = (prov: Proveedor) => {
+    if (!tienePermiso(usuarioActual, 'proveedores.editar')) {
+      alert('No tienes permiso para editar proveedores.')
+      return
+    }
+
     setEditandoId(prov.id_proveedor);
     setNombre(prov.nombre_proveedor);
     setNombreContacto(prov.nombre_contacto);
@@ -307,6 +347,12 @@ const btnDelete = {
   cursor: 'pointer',
   color: '#fff',
 };
+
+  if (!autorizado) return null
+
+  const puedeCrearProveedor = tienePermiso(usuarioActual, 'proveedores.crear')
+  const puedeEditarProveedor = tienePermiso(usuarioActual, 'proveedores.editar')
+  const puedeEliminarProveedor = tienePermiso(usuarioActual, 'proveedores.eliminar')
 
   // Visual de la Pagina
   return (
@@ -592,6 +638,7 @@ const btnDelete = {
 
             <button
               type="submit"
+              disabled={editandoId ? !puedeEditarProveedor : !puedeCrearProveedor}
               style={{
                 marginTop: '10px',
                 backgroundColor: editandoId ? '#D97706' : '#0F766E',
@@ -600,7 +647,8 @@ const btnDelete = {
                 borderRadius: '12px',
                 border: 'none',
                 fontWeight: 'bold',
-                cursor: 'pointer',
+                cursor: (editandoId ? puedeEditarProveedor : puedeCrearProveedor) ? 'pointer' : 'not-allowed',
+                opacity: (editandoId ? puedeEditarProveedor : puedeCrearProveedor) ? 1 : 0.55,
               }}
             >
               {editandoId ? 'Actualizar' : 'Guardar'}
@@ -663,16 +711,16 @@ const btnDelete = {
                   <td>
                     <button onClick={() => cambiarEstadoProveedor(p.id_proveedor,p.estado)}
                     style={{ marginLeft: '6px',backgroundColor: p.estado === 'activo' ? '#16A34A': '#DC2626',
-                    border: 'none',padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',color: '#fff',
-                    fontWeight: 'bold', fontSize: '12px',}}>
+                    border: 'none',padding: '6px 10px', borderRadius: '6px', cursor: puedeEditarProveedor ? 'pointer' : 'not-allowed',color: '#fff',
+                    opacity: puedeEditarProveedor ? 1 : 0.55, fontWeight: 'bold', fontSize: '12px',}}>
                     {p.estado === 'activo' ? 'Activo' : 'Inactivo'}
                     </button>
                   </td>
 
                   <td style={{ ...td, width: '120px' }}>
                       <div style={{ display: 'flex', gap: '6px'}}>
-                        <button onClick={() => prepararEdicion(p)} style={btnEdit}>✎</button>
-                        <button onClick={() => eliminarProveedor(p.id_proveedor)} style={btnDelete}>✕</button>
+                        {puedeEditarProveedor && <button onClick={() => prepararEdicion(p)} style={btnEdit}>✎</button>}
+                        {puedeEliminarProveedor && <button onClick={() => eliminarProveedor(p.id_proveedor)} style={btnDelete}>✕</button>}
                       </div>
                   </td>
                 </tr>

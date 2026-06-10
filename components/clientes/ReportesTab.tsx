@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { supabase } from '../../lib/supabase'
 
-type TipoReporte = 'ventas' | 'clientes' | 'recibos' | 'notasCredito'
+type TipoReporte = 'ventas' | 'clientes' | 'recibos' | 'notasCredito' | 'cotizaciones'
 
 type Factura = {
   id_factura: number
@@ -17,6 +17,16 @@ type Factura = {
   total_factura: number
   estado: string
   descripcion_anulacion: string | null
+}
+
+type Cotizacion = {
+  id_cotizacion: number
+  id_cliente: number | null
+  numero_cotizacion: string
+  nombre_cliente: string
+  fecha_cotizacion: string
+  total_cotizacion: number
+  estado: string
 }
 
 type Recibo = {
@@ -114,6 +124,10 @@ function abrirFactura(idFactura: number) {
   window.open(`/clientes/factura/${idFactura}`, '_blank')
 }
 
+function abrirCotizacion(idCotizacion: number) {
+  window.open(`/clientes/cotizacion/${idCotizacion}`, '_blank')
+}
+
 function abrirRecibo(idRecibo: number) {
   window.open(`/clientes/recibo/${idRecibo}`, '_blank')
 }
@@ -135,6 +149,7 @@ export default function ReportesTab() {
   const [tipoReporte, setTipoReporte] = useState<TipoReporte>('ventas')
 
   const [facturas, setFacturas] = useState<Factura[]>([])
+  const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>([])
   const [recibos, setRecibos] = useState<Recibo[]>([])
   const [notasCredito, setNotasCredito] = useState<NotaCredito[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -144,6 +159,7 @@ export default function ReportesTab() {
   const [fechaDesde, setFechaDesde] = useState('')
   const [fechaHasta, setFechaHasta] = useState('')
   const [busquedaVentas, setBusquedaVentas] = useState('')
+  const [busquedaCotizaciones, setBusquedaCotizaciones] = useState('')
   const [busquedaRecibos, setBusquedaRecibos] = useState('')
   const [busquedaNotasCredito, setBusquedaNotasCredito] = useState('')
   const [busquedaCliente, setBusquedaCliente] = useState('')
@@ -176,8 +192,10 @@ export default function ReportesTab() {
       cargarReporteClientes()
     } else if (tipoReporte === 'recibos') {
       cargarRecibos()
-    } else {
+    } else if (tipoReporte === 'notasCredito') {
       cargarNotasCredito()
+    } else if (tipoReporte === 'cotizaciones') {
+      cargarCotizaciones()
     }
   }, [tipoReporte])
 
@@ -209,6 +227,39 @@ export default function ReportesTab() {
     } catch (error: any) {
       console.log('Error al cargar facturas:', error)
       setMensaje(`Error al cargar facturas: ${error?.message || 'Error inesperado.'}`)
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  async function cargarCotizaciones() {
+    setCargando(true)
+    setMensaje('')
+
+    try {
+      let query = supabase
+        .from('cotizaciones')
+        .select(
+          'id_cotizacion, id_cliente, numero_cotizacion, nombre_cliente, fecha_cotizacion, total_cotizacion, estado'
+        )
+        .order('id_cotizacion', { ascending: false })
+
+      if (fechaDesde) {
+        query = query.gte('fecha_cotizacion', fechaDesde)
+      }
+
+      if (fechaHasta) {
+        query = query.lte('fecha_cotizacion', fechaHasta)
+      }
+
+      const { data, error } = await query
+
+      if (error) throw error
+
+      setCotizaciones(data || [])
+    } catch (error: any) {
+      console.log('Error al cargar cotizaciones:', error)
+      setMensaje(`Error al cargar cotizaciones: ${error?.message || 'Error inesperado.'}`)
     } finally {
       setCargando(false)
     }
@@ -280,7 +331,6 @@ export default function ReportesTab() {
     }
   }
 
-
   async function cargarFacturasParaNotas() {
     try {
       const { data, error } = await supabase
@@ -351,6 +401,17 @@ export default function ReportesTab() {
 
     setTimeout(() => {
       cargarFacturas()
+    }, 0)
+  }
+
+  function limpiarFiltroCotizaciones() {
+    setFechaDesde('')
+    setFechaHasta('')
+    setBusquedaCotizaciones('')
+    setFiltroEstado('Todos')
+
+    setTimeout(() => {
+      cargarCotizaciones()
     }, 0)
   }
 
@@ -649,6 +710,20 @@ export default function ReportesTab() {
     })
   }, [facturas, busquedaVentas, filtroEstado])
 
+  const cotizacionesFiltradas = useMemo(() => {
+    const texto = normalizarTexto(busquedaCotizaciones)
+
+    return cotizaciones.filter((cotizacion) => {
+      const coincideEstado = cumpleFiltroEstado(cotizacion.estado)
+      const coincideTexto =
+        !texto ||
+        normalizarTexto(cotizacion.nombre_cliente).includes(texto) ||
+        normalizarTexto(cotizacion.numero_cotizacion).includes(texto)
+
+      return coincideEstado && coincideTexto
+    })
+  }, [cotizaciones, busquedaCotizaciones, filtroEstado])
+
   const recibosFiltrados = useMemo(() => {
     const texto = normalizarTexto(busquedaRecibos)
 
@@ -719,6 +794,26 @@ export default function ReportesTab() {
       ticketPromedio,
     }
   }, [facturasFiltradas])
+
+  const resumenCotizaciones = useMemo(() => {
+    const totalCotizaciones = cotizacionesFiltradas.length
+    const total = cotizacionesFiltradas.reduce(
+      (acc, cotizacion) => acc + Number(cotizacion.total_cotizacion || 0),
+      0
+    )
+    const promedio = totalCotizaciones > 0 ? total / totalCotizaciones : 0
+
+    const mayorCotizacion = [...cotizacionesFiltradas].sort(
+      (a, b) => Number(b.total_cotizacion || 0) - Number(a.total_cotizacion || 0)
+    )[0]
+
+    return {
+      totalCotizaciones,
+      total,
+      promedio,
+      mayorCotizacion,
+    }
+  }, [cotizacionesFiltradas])
 
   const resumenRecibos = useMemo(() => {
     const totalRecibos = recibosFiltrados.length
@@ -892,6 +987,20 @@ export default function ReportesTab() {
           numeroMoneda(factura.total_factura),
           factura.estado,
           factura.descripcion_anulacion || '-',
+        ]),
+      }
+    }
+
+    if (tipoReporte === 'cotizaciones') {
+      return {
+        titulo: `Reporte de Cotizaciones - ${periodo}`,
+        nombreArchivo: 'reporte_cotizaciones',
+        encabezados: ['Número de Cotización', 'Fecha', 'Cliente', 'Total'],
+        filas: cotizacionesFiltradas.map((cotizacion) => [
+          cotizacion.numero_cotizacion,
+          formatearFecha(cotizacion.fecha_cotizacion),
+          cotizacion.nombre_cliente,
+          numeroMoneda(cotizacion.total_cotizacion),
         ]),
       }
     }
@@ -1221,6 +1330,14 @@ export default function ReportesTab() {
       ]
     }
 
+    if (tipoReporte === 'cotizaciones') {
+      return [
+        { valor: 'Todos', etiqueta: 'Todas' },
+        { valor: 'Emitida', etiqueta: 'Emitidas' },
+        { valor: 'Anulada', etiqueta: 'Anuladas' },
+      ]
+    }
+
     return [
       { valor: 'Todos', etiqueta: 'Todas' },
       { valor: 'Emitida', etiqueta: 'Emitidas' },
@@ -1285,6 +1402,7 @@ export default function ReportesTab() {
                 setTipoReporte(e.target.value as TipoReporte)
                 setMensaje('')
                 setBusquedaVentas('')
+                setBusquedaCotizaciones('')
                 setBusquedaRecibos('')
                 setBusquedaNotasCredito('')
                 setBusquedaCliente('')
@@ -1293,6 +1411,7 @@ export default function ReportesTab() {
               className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black"
             >
               <option value="ventas">Reporte de Ventas</option>
+              <option value="cotizaciones">Reporte de Cotizaciones</option>
               <option value="clientes">Reporte de Clientes</option>
               <option value="recibos">Reporte de Recibos</option>
               <option value="notasCredito">Reporte de Notas de Crédito</option>
@@ -1403,7 +1522,6 @@ export default function ReportesTab() {
                     <th className="p-3 text-right border border-gray-200">Subtotal</th>
                     <th className="p-3 text-right border border-gray-200">Impuesto</th>
                     <th className="p-3 text-right border border-gray-200">Total</th>
-                    <th className="p-3 text-center border border-gray-200">Estado</th>
                     <th className="p-3 text-center border border-gray-200">Ver</th>
                   </tr>
                 </thead>
@@ -1420,12 +1538,8 @@ export default function ReportesTab() {
                   ) : (
                     facturasFiltradas.map((factura) => (
                       <tr key={factura.id_factura} className="bg-white text-black">
-                        <td className="p-3 border border-gray-200">
-                          {factura.secuencia_fiscal}
-                        </td>
-                        <td className="p-3 border border-gray-200">
-                          {factura.nombre_cliente}
-                        </td>
+                        <td className="p-3 border border-gray-200">{factura.secuencia_fiscal}</td>
+                        <td className="p-3 border border-gray-200">{factura.nombre_cliente}</td>
                         <td className="p-3 border border-gray-200 text-center">
                           {formatearFecha(factura.fecha_factura)}
                         </td>
@@ -1455,12 +1569,161 @@ export default function ReportesTab() {
                           >
                             {factura.estado || 'Emitida'}
                           </button>
-
                         </td>
                         <td className="p-3 border border-gray-200 text-center">
                           <button
                             type="button"
                             onClick={() => abrirFactura(factura.id_factura)}
+                            className="rounded-lg bg-cyan-600 px-3 py-1 text-sm font-semibold text-white hover:bg-cyan-500"
+                          >
+                            Ver
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tipoReporte === 'cotizaciones' && (
+        <div className="bg-gray-50 border border-gray-300 rounded-2xl p-6 shadow-sm">
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+            <div>
+              <label className="block mb-1 font-medium text-black">Fecha desde</label>
+              <input
+                type="date"
+                value={fechaDesde}
+                onChange={(e) => setFechaDesde(e.target.value)}
+                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black"
+              />
+            </div>
+
+            <div>
+              <label className="block mb-1 font-medium text-black">Fecha hasta</label>
+              <input
+                type="date"
+                value={fechaHasta}
+                onChange={(e) => setFechaHasta(e.target.value)}
+                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black"
+              />
+            </div>
+
+            <div>
+              <label className="block mb-1 font-medium text-black">Buscar cotización</label>
+              <input
+                type="text"
+                value={busquedaCotizaciones}
+                onChange={(e) => setBusquedaCotizaciones(e.target.value)}
+                placeholder="Cliente o número de cotización"
+                className="w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-black placeholder:text-gray-500"
+              />
+            </div>
+
+            <SelectEstado />
+
+            <button
+              type="button"
+              onClick={cargarCotizaciones}
+              className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+            >
+              Filtrar cotizaciones
+            </button>
+
+            <button
+              type="button"
+              onClick={limpiarFiltroCotizaciones}
+              className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-black font-semibold"
+            >
+              Mostrar todas
+            </button>
+          </div>
+
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="rounded-2xl border border-gray-300 bg-white p-4 shadow-sm">
+              <p className="text-sm text-gray-500">Cotizaciones</p>
+              <p className="text-2xl font-bold text-black">{resumenCotizaciones.totalCotizaciones}</p>
+            </div>
+
+            <div className="rounded-2xl border border-gray-300 bg-white p-4 shadow-sm">
+              <p className="text-sm text-gray-500">Total cotizado</p>
+              <p className="text-2xl font-bold text-black whitespace-nowrap">{moneda(resumenCotizaciones.total)}</p>
+            </div>
+
+            <div className="rounded-2xl border border-gray-300 bg-white p-4 shadow-sm">
+              <p className="text-sm text-gray-500">Promedio cotizado</p>
+              <p className="text-2xl font-bold text-black whitespace-nowrap">{moneda(resumenCotizaciones.promedio)}</p>
+            </div>
+
+            <div className="rounded-2xl border border-gray-300 bg-white p-4 shadow-sm">
+              <p className="text-sm text-gray-500">Mayor cotización</p>
+              <p className="text-base font-bold text-black">
+                {resumenCotizaciones.mayorCotizacion?.numero_cotizacion || '-'}
+              </p>
+              <p className="text-sm text-gray-600">
+                {moneda(resumenCotizaciones.mayorCotizacion?.total_cotizacion || 0)}
+              </p>
+            </div>
+          </div>
+
+          <div className="mb-4 text-sm text-gray-600">
+            Mostrando {cotizacionesFiltradas.length} de {cotizaciones.length} cotización(es)
+          </div>
+
+          {mensaje && (
+            <div className="mb-4 rounded-lg border border-gray-300 bg-gray-100 px-4 py-3 text-sm text-black">
+              {mensaje}
+            </div>
+          )}
+
+          {cargando ? (
+            <div className="rounded-xl border border-gray-300 bg-white p-6 text-black">
+              Cargando reporte de cotizaciones...
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
+              <table className="w-full border-collapse">
+                <thead className="bg-gray-100 text-black">
+                  <tr>
+                    <th className="p-3 text-left border border-gray-200">Número de Cotización</th>
+                    <th className="p-3 text-center border border-gray-200">Fecha</th>
+                    <th className="p-3 text-left border border-gray-200">Cliente</th>
+                    <th className="p-3 text-right border border-gray-200">Total</th>
+                    <th className="p-3 text-center border border-gray-200">Ver</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cotizacionesFiltradas.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="p-4 text-center border border-gray-200 bg-white text-gray-500"
+                      >
+                        No hay cotizaciones para mostrar.
+                      </td>
+                    </tr>
+                  ) : (
+                    cotizacionesFiltradas.map((cotizacion) => (
+                      <tr key={cotizacion.id_cotizacion} className="bg-white text-black">
+                        <td className="p-3 border border-gray-200">
+                          {cotizacion.numero_cotizacion}
+                        </td>
+                        <td className="p-3 border border-gray-200 text-center">
+                          {formatearFecha(cotizacion.fecha_cotizacion)}
+                        </td>
+                        <td className="p-3 border border-gray-200">
+                          {cotizacion.nombre_cliente}
+                        </td>
+                        <td className="p-3 border border-gray-200 text-right whitespace-nowrap">
+                          {moneda(cotizacion.total_cotizacion)}
+                        </td>
+                        <td className="p-3 border border-gray-200 text-center">
+                          <button
+                            type="button"
+                            onClick={() => abrirCotizacion(cotizacion.id_cotizacion)}
                             className="rounded-lg bg-cyan-600 px-3 py-1 text-sm font-semibold text-white hover:bg-cyan-500"
                           >
                             Ver
@@ -1597,19 +1860,12 @@ export default function ReportesTab() {
                   ) : (
                     recibosFiltrados.map((recibo) => (
                       <tr key={recibo.id_recibo} className="bg-white text-black">
-                        <td className="p-3 border border-gray-200">
-                          {recibo.secuencia_recibo}
-                        </td>
-                        <td className="p-3 border border-gray-200">
-                          {recibo.nombre_cliente}
-                        </td>
+                        <td className="p-3 border border-gray-200">{recibo.secuencia_recibo}</td>
+                        <td className="p-3 border border-gray-200">{recibo.nombre_cliente}</td>
                         <td className="p-3 border border-gray-200 text-center">
                           {formatearFecha(recibo.fecha_recibo)}
                         </td>
-                        <td className="p-3 border border-gray-200">
-                          <div>{recibo.descripcion}</div>
-
-                        </td>
+                        <td className="p-3 border border-gray-200">{recibo.descripcion}</td>
                         <td className="p-3 border border-gray-200 text-right whitespace-nowrap">
                           {moneda(recibo.valor_recibido)}
                         </td>
@@ -1771,18 +2027,12 @@ export default function ReportesTab() {
                   ) : (
                     notasCreditoFiltradas.map((nota) => (
                       <tr key={nota.id_nota_credito} className="bg-white text-black">
-                        <td className="p-3 border border-gray-200">
-                          {nota.secuencia_fiscal}
-                        </td>
-                        <td className="p-3 border border-gray-200">
-                          {nota.nombre_cliente}
-                        </td>
+                        <td className="p-3 border border-gray-200">{nota.secuencia_fiscal}</td>
+                        <td className="p-3 border border-gray-200">{nota.nombre_cliente}</td>
                         <td className="p-3 border border-gray-200 text-center">
                           {formatearFecha(nota.fecha_nota)}
                         </td>
-                        <td className="p-3 border border-gray-200">
-                          {nota.descripcion}
-                        </td>
+                        <td className="p-3 border border-gray-200">{nota.descripcion}</td>
                         <td className="p-3 border border-gray-200 text-right whitespace-nowrap">
                           {moneda(nota.valor_nota)}
                         </td>
@@ -1946,17 +2196,11 @@ export default function ReportesTab() {
                   ) : (
                     clientesFiltrados.map((cliente) => (
                       <tr key={cliente.id_cliente} className="bg-white text-black">
-                        <td className="p-3 border border-gray-200">
-                          {cliente.nombre_cliente}
-                        </td>
+                        <td className="p-3 border border-gray-200">{cliente.nombre_cliente}</td>
                         <td className="p-3 border border-gray-200">{cliente.rtn || '-'}</td>
                         <td className="p-3 border border-gray-200">{cliente.correo || '-'}</td>
-                        <td className="p-3 border border-gray-200">
-                          {cliente.telefono || '-'}
-                        </td>
-                        <td className="p-3 border border-gray-200 text-center">
-                          {cliente.cantidad_facturas}
-                        </td>
+                        <td className="p-3 border border-gray-200">{cliente.telefono || '-'}</td>
+                        <td className="p-3 border border-gray-200 text-center">{cliente.cantidad_facturas}</td>
                         <td className="p-3 border border-gray-200 text-right whitespace-nowrap">
                           {moneda(cliente.subtotal_facturado)}
                         </td>
@@ -1978,6 +2222,7 @@ export default function ReportesTab() {
           )}
         </div>
       )}
+
       {modalNotaAbierto && notaSeleccionada && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="w-full max-w-2xl rounded-2xl bg-white p-6 text-black shadow-2xl">
@@ -2195,7 +2440,6 @@ export default function ReportesTab() {
           </div>
         </div>
       )}
-
     </div>
   )
 }

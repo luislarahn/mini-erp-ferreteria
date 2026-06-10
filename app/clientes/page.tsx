@@ -1,9 +1,11 @@
+
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import FacturacionTab from '../../components/clientes/FacturacionTab'
+import CotizacionesTab from '../../components/clientes/CotizacionesTab'
 import RecibosTab from '../../components/clientes/RecibosTab'
 import NotasCreditoTab from '../../components/clientes/NotasCreditoTab'
 import ClientesTab from '../../components/clientes/ClientesTab'
@@ -14,6 +16,7 @@ import { obtenerUsuarioSesion, puedeEntrarModulo, tienePermiso, type UsuarioSesi
 
 type PestanaActiva =
   | 'facturacion'
+  | 'cotizaciones'
   | 'recibos'
   | 'notasCredito'
   | 'productos'
@@ -136,12 +139,7 @@ export default function ClientesPage() {
             </p>
           </div>
 
-          <div
-            ref={menuRef}
-            style={{
-              position: 'relative',
-            }}
-          >
+          <div ref={menuRef} style={{ position: 'relative' }}>
             <button
               onClick={() => setMenuAbierto(!menuAbierto)}
               style={{
@@ -201,22 +199,10 @@ export default function ClientesPage() {
                     backgroundColor: '#FAFAFA',
                   }}
                 >
-                  <div
-                    style={{
-                      fontWeight: 'bold',
-                      color: '#111827',
-                      fontSize: '14px',
-                    }}
-                  >
+                  <div style={{ fontWeight: 'bold', color: '#111827', fontSize: '14px' }}>
                     Admin
                   </div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      color: '#6B7280',
-                      marginTop: '4px',
-                    }}
-                  >
+                  <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '4px' }}>
                     Usuario del sistema
                   </div>
                 </div>
@@ -288,13 +274,7 @@ export default function ClientesPage() {
         </div>
       </header>
 
-      <main
-        style={{
-          maxWidth: '1280px',
-          margin: '0 auto',
-          padding: '32px',
-        }}
-      >
+      <main style={{ maxWidth: '1280px', margin: '0 auto', padding: '32px' }}>
         <a
           href="/dashboard"
           style={{
@@ -322,6 +302,14 @@ export default function ClientesPage() {
             style={estiloPestana(pestanaActiva === 'facturacion')}
           >
             Facturación
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPestanaActiva('cotizaciones')}
+            style={estiloPestana(pestanaActiva === 'cotizaciones')}
+          >
+            Cotizaciones
           </button>
 
           <button
@@ -385,13 +373,21 @@ export default function ClientesPage() {
           {pestanaActiva === 'facturacion' && (
             <FacturacionTab irACrearCliente={() => setPestanaActiva('clientes')} />
           )}
+
+          {pestanaActiva === 'cotizaciones' && (
+            <CotizacionesTab irACrearCliente={() => setPestanaActiva('clientes')} />
+          )}
+
           {pestanaActiva === 'recibos' && (
             <RecibosTab irACrearCliente={() => setPestanaActiva('clientes')} />
           )}
+
           {pestanaActiva === 'notasCredito' && (
             <NotasCreditoTab irACrearCliente={() => setPestanaActiva('clientes')} />
           )}
+
           {pestanaActiva === 'productos' && <ReporteProductos />}
+
           {pestanaActiva === 'clientes' && (
             <ClientesTab
               puedeCrear={tienePermiso(usuarioActual, 'clientes.crear')}
@@ -399,6 +395,7 @@ export default function ClientesPage() {
               puedeEliminar={tienePermiso(usuarioActual, 'clientes.eliminar')}
             />
           )}
+
           {pestanaActiva === 'reportes' && <ReportesTab />}
           {pestanaActiva === 'configuraciones' && <ConfiguracionesTab />}
         </div>
@@ -406,3 +403,4 @@ export default function ClientesPage() {
     </div>
   )
 }
+
